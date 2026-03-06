@@ -1,0 +1,9 @@
+{
+    "name": "mentorkit/scaleaq-reporting",
+    "description": "Reporting plugin for ScaleAQ Academy (LearnDash LMS)",
+    "type": "wordpress-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.0"
+    }
+}
