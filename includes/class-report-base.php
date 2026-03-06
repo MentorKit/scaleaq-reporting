@@ -81,7 +81,7 @@ abstract class ScaleAQ_Report_Base {
                 INNER JOIN {$wpdb->usermeta} um ON u.ID = um.user_id
                 INNER JOIN {$wpdb->usermeta} fn ON u.ID = fn.user_id
                 INNER JOIN {$wpdb->usermeta} ln ON u.ID = ln.user_id
-                LEFT JOIN {$wpdb->usermeta} ms ON u.ID = ms.user_id AND ms.meta_key = 'msGraph'
+                LEFT JOIN {$wpdb->usermeta} ms ON u.ID = ms.user_id AND ms.meta_key = 'msGraphCompanyName'
                 WHERE {$base_where}";
 
         if ( ! empty( $extra_where ) ) {
