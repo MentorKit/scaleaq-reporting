@@ -6,15 +6,36 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 abstract class ScaleAQ_Report_Base {
 
+    public static function get_default_from() {
+        return '';
+    }
+
+    public static function get_default_to() {
+        return '';
+    }
+
     public static function get_base_where() {
         return "um.meta_key = 'wp_capabilities' AND um.meta_value LIKE '%\"subscriber\"%'
             AND fn.meta_key = 'first_name' AND fn.meta_value != ''
             AND ln.meta_key = 'last_name' AND ln.meta_value != ''
-            AND u.user_email NOT LIKE '%@scaleaq.com'
-            AND u.user_email NOT LIKE '%@moenmarin.no'
-            AND u.user_email NOT LIKE '%@maskon.no'
-            AND u.user_email NOT LIKE '%@scaleaq.academy'
-            AND u.user_login NOT IN ('demo','revisor','test','dummy','admin','support','spare.equipment','logistics','bank','accounts','seleccion','developers')";
+            AND (
+                u.user_email LIKE '%scaleaq.com%'
+                OR u.user_email LIKE '%moenmarin.no%'
+                OR u.user_email LIKE '%maskon.no%'
+                OR u.user_email LIKE '%scaleaq.academy%'
+            )
+            AND u.user_email NOT LIKE '%demo%'
+            AND u.user_email NOT LIKE '%revisor%'
+            AND u.user_email NOT LIKE '%test%'
+            AND u.user_email NOT LIKE '%dummy%'
+            AND u.user_email NOT LIKE '%admin%'
+            AND u.user_email NOT LIKE '%support%'
+            AND u.user_email NOT LIKE '%spare.equipment%'
+            AND u.user_email NOT LIKE '%logistics%'
+            AND u.user_email NOT LIKE '%bank%'
+            AND u.user_email NOT LIKE '%accounts%'
+            AND u.user_email NOT LIKE '%seleccion%'
+            AND u.user_email NOT LIKE '%developers%'";
     }
 
     public static function get_course_ids_map() {
