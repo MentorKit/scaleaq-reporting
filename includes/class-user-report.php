@@ -48,7 +48,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
             $course_ids   = $course_map[ $cat ];
             $placeholders = implode( ',', array_fill( 0, count( $course_ids ), '%d' ) );
 
-            $activity_sql = "SELECT DISTINCT user_id
+            $activity_sql = "SELECT user_id, MAX(`{$ts_col}`) as completed_ts
                 FROM {$wpdb->prefix}learndash_user_activity
                 WHERE activity_type = 'course'
                     AND activity_status = 1
@@ -66,9 +66,13 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                 $activity_sql .= $wpdb->prepare( " AND `{$ts_col}` <= %d", $to_ts );
             }
 
+            $activity_sql .= " GROUP BY user_id";
+
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-            $completed_users = $wpdb->get_col( $wpdb->prepare( $activity_sql, $prepare_args ) );
-            $completed_set   = array_flip( $completed_users );
+            $completed_rows = $wpdb->get_results( $wpdb->prepare( $activity_sql, $prepare_args ) );
+            foreach ( $completed_rows as $row ) {
+                $completed_set[ $row->user_id ] = (int) $row->completed_ts;
+            }
         }
 
         // CSV export.
@@ -184,6 +188,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                 <th>Company</th>
                                 <?php if ( $cat !== '' ) : ?>
                                     <th>Status</th>
+                                    <th>Completed</th>
                                 <?php endif; ?>
                             </tr>
                         </thead>
@@ -195,14 +200,17 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                 <td><?php echo esc_html( $u->first_name ); ?></td>
                                 <td><?php echo esc_html( $u->last_name ); ?></td>
                                 <td><?php echo esc_html( $u->company ?? '' ); ?></td>
-                                <?php if ( $cat !== '' ) : ?>
+                                <?php if ( $cat !== '' ) :
+                                    $user_ts = $completed_set[ $u->ID ] ?? null;
+                                ?>
                                     <td>
-                                        <?php if ( isset( $completed_set[ $u->ID ] ) ) : ?>
+                                        <?php if ( $user_ts ) : ?>
                                             <span class="saq-badge saq-badge--yes"><span class="saq-badge__dot"></span> Completed</span>
                                         <?php else : ?>
                                             <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> Pending</span>
                                         <?php endif; ?>
                                     </td>
+                                    <td><?php echo $user_ts ? esc_html( gmdate( 'd/m/Y', $user_ts ) ) : '&mdash;'; ?></td>
                                 <?php endif; ?>
                             </tr>
                             <?php endforeach; ?>
@@ -225,6 +233,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
         $headers = array( 'ID', 'Email', 'First Name', 'Last Name', 'Company' );
         if ( $cat !== '' ) {
             $headers[] = 'Has Completed';
+            $headers[] = 'Completed Date';
         }
         fputcsv( $output, $headers );
 
@@ -237,7 +246,9 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                 $u->company ?? '',
             );
             if ( $cat !== '' ) {
-                $row[] = isset( $completed_set[ $u->ID ] ) ? 'Yes' : 'No';
+                $ts = $completed_set[ $u->ID ] ?? null;
+                $row[] = $ts ? 'Yes' : 'No';
+                $row[] = $ts ? gmdate( 'd/m/Y', $ts ) : '';
             }
             fputcsv( $output, $row );
         }

@@ -50,7 +50,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
 
         // Build completion lookup.
         $placeholders = implode( ',', array_fill( 0, count( $course_ids ), '%d' ) );
-        $activity_sql = "SELECT DISTINCT user_id
+        $activity_sql = "SELECT user_id, MAX(`{$ts_col}`) as completed_ts
             FROM {$wpdb->prefix}learndash_user_activity
             WHERE activity_type = 'course'
                 AND activity_status = 1
@@ -68,9 +68,14 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             $activity_sql .= $wpdb->prepare( " AND `{$ts_col}` <= %d", $to_ts );
         }
 
+        $activity_sql .= " GROUP BY user_id";
+
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-        $completed_users = $wpdb->get_col( $wpdb->prepare( $activity_sql, $prepare_args ) );
-        $completed_set   = array_flip( $completed_users );
+        $completed_rows = $wpdb->get_results( $wpdb->prepare( $activity_sql, $prepare_args ) );
+        $completed_set  = array();
+        foreach ( $completed_rows as $row ) {
+            $completed_set[ $row->user_id ] = (int) $row->completed_ts;
+        }
 
         // Tally stats.
         $total         = count( $users );
@@ -114,9 +119,14 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             return '';
         }
 
-        // Sort companies by completed count descending for the bar chart.
-        arsort( $by_company );
-        $max_company_completed = max( array_column( $by_company, 'completed' ) ?: array( 1 ) );
+        // Filter companies to only those with completions, sort descending.
+        $by_company_completed = array_filter( $by_company, function ( $stats ) {
+            return $stats['completed'] > 0;
+        } );
+        uasort( $by_company_completed, function ( $a, $b ) {
+            return $b['completed'] - $a['completed'];
+        } );
+        $total_company_completions = array_sum( array_column( $by_company_completed, 'completed' ) );
 
         // Render output.
         ob_start();
@@ -217,26 +227,54 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     </div>
                 </div>
 
+                <?php if ( ! empty( $by_company_completed ) ) :
+                    // Build conic-gradient segments and legend colors.
+                    $company_colors = array(
+                        '#14b8a6', '#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444',
+                        '#10b981', '#3b82f6', '#ec4899', '#f97316', '#6366f1',
+                        '#84cc16', '#0ea5e9', '#d946ef', '#eab308', '#64748b',
+                    );
+                    $segments = array();
+                    $legend_items = array();
+                    $deg_cursor = 0;
+                    $i = 0;
+                    foreach ( $by_company_completed as $cname => $stats ) :
+                        $color = $company_colors[ $i % count( $company_colors ) ];
+                        $slice_deg = $total_company_completions > 0
+                            ? ( $stats['completed'] / $total_company_completions ) * 360
+                            : 0;
+                        $end_deg = $deg_cursor + $slice_deg;
+                        $segments[] = "{$color} {$deg_cursor}deg {$end_deg}deg";
+                        $legend_items[] = array( 'name' => $cname, 'count' => $stats['completed'], 'color' => $color );
+                        $deg_cursor = $end_deg;
+                        $i++;
+                    endforeach;
+                    $gradient = implode( ', ', $segments );
+                ?>
                 <div class="saq-card" style="margin-bottom: 0; padding: 0;">
                     <div style="padding: 24px 24px 8px;">
                         <p class="saq-card__label" style="margin-bottom: 0;">Completions by Company</p>
                     </div>
-                    <div class="saq-bars">
-                        <?php foreach ( $by_company as $cname => $stats ) :
-                            $bar_pct = $max_company_completed > 0
-                                ? round( ( $stats['completed'] / $max_company_completed ) * 100 )
-                                : 0;
-                        ?>
-                        <div class="saq-bar">
-                            <span class="saq-bar__label" title="<?php echo esc_attr( $cname ); ?>"><?php echo esc_html( $cname ); ?></span>
-                            <div class="saq-bar__track">
-                                <div class="saq-bar__fill" style="width: <?php echo esc_attr( $bar_pct ); ?>%;"></div>
+                    <div class="saq-company-chart">
+                        <div class="saq-company-donut">
+                            <div class="saq-company-donut__ring" style="background: conic-gradient(<?php echo $gradient; ?>);"></div>
+                            <div class="saq-company-donut__hole">
+                                <span class="saq-company-donut__total"><?php echo esc_html( $total_company_completions ); ?></span>
+                                <span class="saq-company-donut__caption">completed</span>
                             </div>
-                            <span class="saq-bar__value"><?php echo esc_html( $stats['completed'] ); ?></span>
                         </div>
-                        <?php endforeach; ?>
+                        <div class="saq-company-legend">
+                            <?php foreach ( $legend_items as $item ) : ?>
+                            <span class="saq-company-legend__item">
+                                <span class="saq-company-legend__dot" style="background: <?php echo esc_attr( $item['color'] ); ?>;"></span>
+                                <span class="saq-company-legend__name"><?php echo esc_html( $item['name'] ); ?></span>
+                                <span class="saq-company-legend__count"><?php echo esc_html( $item['count'] ); ?></span>
+                            </span>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
 
             <!-- Group Completion Table -->
@@ -307,9 +345,10 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
         header( 'Content-Disposition: attachment; filename="course-report-' . esc_attr( $cat ) . '.csv"' );
 
         $output = fopen( 'php://output', 'w' );
-        fputcsv( $output, array( 'ID', 'Email', 'First Name', 'Last Name', 'Company', 'Category', 'Completed' ) );
+        fputcsv( $output, array( 'ID', 'Email', 'First Name', 'Last Name', 'Company', 'Category', 'Completed', 'Completed Date' ) );
 
         foreach ( $users as $u ) {
+            $ts = $completed_set[ $u->ID ] ?? null;
             fputcsv( $output, array(
                 $u->ID,
                 $u->user_email,
@@ -317,7 +356,8 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 $u->last_name,
                 $u->company ?? '',
                 $category_labels[ $cat ] ?? $cat,
-                isset( $completed_set[ $u->ID ] ) ? 'Yes' : 'No',
+                $ts ? 'Yes' : 'No',
+                $ts ? gmdate( 'd/m/Y', $ts ) : '',
             ) );
         }
 

@@ -52,9 +52,9 @@
 .scaleaq-report {
     font-family: var(--saq-font-body);
     color: var(--saq-text);
-    max-width: 1120px;
+    max-width: none;
     margin: 0 auto;
-    padding: 32px 0;
+    padding: 32px 40px;
     -webkit-font-smoothing: antialiased;
 }
 
@@ -197,29 +197,37 @@
     box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
 }
 
-.saq-filters__submit {
-    font-family: var(--saq-font-display);
-    font-size: 14px;
-    font-weight: 600;
-    height: 40px;
-    padding: 0 24px;
-    border: none;
-    border-radius: var(--saq-radius-sm);
-    background: linear-gradient(135deg, var(--saq-slate-900), var(--saq-slate-700));
-    color: #fff;
+.saq-filters__submit,
+.scaleaq-report .saq-filters__submit,
+.scaleaq-report button.saq-filters__submit {
+    font-family: var(--saq-font-display) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    height: 40px !important;
+    padding: 0 24px !important;
+    border: none !important;
+    border-radius: var(--saq-radius-sm) !important;
+    background: linear-gradient(135deg, var(--saq-slate-900), var(--saq-slate-700)) !important;
+    color: #fff !important;
     cursor: pointer;
     transition: all var(--saq-transition);
     white-space: nowrap;
     letter-spacing: 0.01em;
+    line-height: 40px !important;
+    text-transform: none !important;
+    box-shadow: none !important;
 }
 
-.saq-filters__submit:hover {
-    background: linear-gradient(135deg, var(--saq-slate-800), var(--saq-slate-600));
-    box-shadow: var(--saq-shadow-md);
+.saq-filters__submit:hover,
+.scaleaq-report .saq-filters__submit:hover,
+.scaleaq-report button.saq-filters__submit:hover {
+    background: linear-gradient(135deg, var(--saq-slate-800), var(--saq-slate-600)) !important;
+    box-shadow: var(--saq-shadow-md) !important;
     transform: translateY(-1px);
 }
 
-.saq-filters__submit:active {
+.saq-filters__submit:active,
+.scaleaq-report .saq-filters__submit:active {
     transform: translateY(0);
 }
 
@@ -570,6 +578,103 @@
     height: 16px;
 }
 
+/* ---------- Company Donut Chart ---------- */
+.saq-company-chart {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    padding: 24px;
+}
+
+.saq-company-donut {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.saq-company-donut__ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+}
+
+.saq-company-donut__hole {
+    position: absolute;
+    inset: 28px;
+    border-radius: 50%;
+    background: var(--saq-surface);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.saq-company-donut__total {
+    font-family: var(--saq-font-display);
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--saq-slate-900);
+    letter-spacing: -0.03em;
+    line-height: 1;
+}
+
+.saq-company-donut__caption {
+    font-size: 11px;
+    color: var(--saq-text-muted);
+    margin-top: 2px;
+    font-weight: 500;
+}
+
+.saq-company-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.saq-company-legend__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--saq-slate-700);
+    font-weight: 500;
+}
+
+.saq-company-legend__dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.saq-company-legend__name {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.saq-company-legend__count {
+    font-family: var(--saq-font-display);
+    font-weight: 700;
+    color: var(--saq-slate-800);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .saq-company-chart {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
 /* ---------- Animation ---------- */
 @keyframes saq-fadeUp {
     from {
@@ -622,7 +727,7 @@
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {
     .scaleaq-report {
-        padding: 16px 0;
+        padding: 16px;
     }
 
     .saq-filters {
