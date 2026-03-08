@@ -180,7 +180,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                         <input type="date" name="cr_to" id="cr_to" value="<?php echo esc_attr( $to ); ?>" />
                     </div>
 
-                    <button type="submit" class="saq-filters__submit">Filter</button>
+                    <button type="submit" class="saq-filters__submit" style="font-family: 'Outfit', system-ui, sans-serif !important; font-size: 14px !important; font-weight: 600 !important; height: 40px !important; padding: 0 24px !important; border: none !important; border-radius: 8px !important; background: linear-gradient(135deg, #111827, #334155) !important; color: #fff !important; line-height: 40px !important; text-transform: none !important; box-shadow: none !important; cursor: pointer; white-space: nowrap; letter-spacing: 0.01em;">Filter</button>
                 </div>
             </form>
 
@@ -255,21 +255,21 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     <div style="padding: 24px 24px 8px;">
                         <p class="saq-card__label" style="margin-bottom: 0;">Completions by Company</p>
                     </div>
-                    <div class="saq-company-chart">
-                        <div class="saq-company-donut">
-                            <div class="saq-company-donut__ring" style="background: conic-gradient(<?php echo $gradient; ?>);"></div>
-                            <div class="saq-company-donut__hole">
-                                <span class="saq-company-donut__total"><?php echo esc_html( $total_company_completions ); ?></span>
-                                <span class="saq-company-donut__caption">completed</span>
+                    <div class="saq-company-chart" style="display: flex; align-items: center; gap: 32px; padding: 24px;">
+                        <div class="saq-company-donut" style="position: relative; width: 160px; height: 160px; border-radius: 50%; flex-shrink: 0;">
+                            <div class="saq-company-donut__ring" style="position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(<?php echo $gradient; ?>);"></div>
+                            <div class="saq-company-donut__hole" style="position: absolute; inset: 28px; border-radius: 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1;">
+                                <span class="saq-company-donut__total" style="font-family: 'Outfit', system-ui, sans-serif; font-size: 28px; font-weight: 800; color: #0b1120; line-height: 1;"><?php echo esc_html( $total_company_completions ); ?></span>
+                                <span class="saq-company-donut__caption" style="font-size: 11px; color: #64748b; margin-top: 2px;">completed</span>
                             </div>
                         </div>
-                        <div class="saq-company-legend">
+                        <div class="saq-company-legend" style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0;">
                             <?php foreach ( $legend_items as $item ) : ?>
-                            <span class="saq-company-legend__item">
-                                <span class="saq-company-legend__dot" style="background: <?php echo esc_attr( $item['color'] ); ?>;"></span>
-                                <span class="saq-company-legend__name"><?php echo esc_html( $item['name'] ); ?></span>
-                                <span class="saq-company-legend__count"><?php echo esc_html( $item['count'] ); ?></span>
-                            </span>
+                            <div class="saq-company-legend__item" style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #334155; font-weight: 500;">
+                                <span class="saq-company-legend__dot" style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; background: <?php echo esc_attr( $item['color'] ); ?>;"></span>
+                                <span class="saq-company-legend__name" style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?php echo esc_html( $item['name'] ); ?></span>
+                                <span class="saq-company-legend__count" style="font-family: 'Outfit', system-ui, sans-serif; font-weight: 700; color: #1e293b; margin-left: auto; flex-shrink: 0;"><?php echo esc_html( $item['count'] ); ?></span>
+                            </div>
                             <?php endforeach; ?>
                         </div>
                     </div>

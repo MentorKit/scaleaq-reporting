@@ -137,7 +137,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                         <input type="date" name="ur_to" id="ur_to" value="<?php echo esc_attr( $to ); ?>" />
                     </div>
 
-                    <button type="submit" class="saq-filters__submit">Filter</button>
+                    <button type="submit" class="saq-filters__submit" style="font-family: 'Outfit', system-ui, sans-serif !important; font-size: 14px !important; font-weight: 600 !important; height: 40px !important; padding: 0 24px !important; border: none !important; border-radius: 8px !important; background: linear-gradient(135deg, #111827, #334155) !important; color: #fff !important; line-height: 40px !important; text-transform: none !important; box-shadow: none !important; cursor: pointer; white-space: nowrap; letter-spacing: 0.01em;">Filter</button>
                 </div>
             </form>
 
