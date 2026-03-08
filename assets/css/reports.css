@@ -48,13 +48,19 @@
     --saq-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ---------- Beaver Builder width overrides ---------- */
+.fl-module-content:has(.scaleaq-report) {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
 /* ---------- Base ---------- */
 .scaleaq-report {
     font-family: var(--saq-font-body);
     color: var(--saq-text);
     max-width: none;
     margin: 0 auto;
-    padding: 32px 40px;
+    padding: 24px 16px;
     -webkit-font-smoothing: antialiased;
 }
 
