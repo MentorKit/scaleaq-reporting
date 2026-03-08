@@ -89,6 +89,61 @@ abstract class ScaleAQ_Report_Base {
         return '';
     }
 
+    /**
+     * Resolve a period preset to from/to dates.
+     *
+     * @param string $period  One of: all, 12m, last_year, custom.
+     * @param string $from    Custom from date (only used when period=custom).
+     * @param string $to      Custom to date (only used when period=custom).
+     * @return array { 'from' => string, 'to' => string, 'label' => string }
+     */
+    public static function resolve_period( $period, $from = '', $to = '' ) {
+        switch ( $period ) {
+            case '12m':
+                return array(
+                    'from'  => gmdate( 'Y-m-d', strtotime( '-12 months' ) ),
+                    'to'    => gmdate( 'Y-m-d' ),
+                    'label' => 'Last 12 months',
+                );
+            case 'last_year':
+                $year = (int) gmdate( 'Y' ) - 1;
+                return array(
+                    'from'  => $year . '-01-01',
+                    'to'    => $year . '-12-31',
+                    'label' => (string) $year,
+                );
+            case 'custom':
+                $label = 'Custom range';
+                if ( $from !== '' && $to !== '' ) {
+                    $label = $from . ' — ' . $to;
+                } elseif ( $from !== '' ) {
+                    $label = 'From ' . $from;
+                } elseif ( $to !== '' ) {
+                    $label = 'Until ' . $to;
+                }
+                return array(
+                    'from'  => $from,
+                    'to'    => $to,
+                    'label' => $label,
+                );
+            default: // 'all'
+                return array(
+                    'from'  => '',
+                    'to'    => '',
+                    'label' => 'All time',
+                );
+        }
+    }
+
+    public static function get_period_options() {
+        return array(
+            'all'       => 'All time',
+            '12m'       => 'Last 12 months',
+            'last_year' => 'Last year (' . ( (int) gmdate( 'Y' ) - 1 ) . ')',
+            'custom'    => 'Custom range',
+        );
+    }
+
     public static function get_base_user_query( $extra_where = '' ) {
         global $wpdb;
 

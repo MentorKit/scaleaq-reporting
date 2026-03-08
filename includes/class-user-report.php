@@ -12,10 +12,17 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
         wp_enqueue_style( 'scaleaq-reports' );
 
         $cat     = sanitize_text_field( $_GET['ur_cat'] ?? '' );
-        $from    = self::sanitize_date( $_GET['ur_from'] ?? self::get_default_from() );
-        $to      = self::sanitize_date( $_GET['ur_to'] ?? self::get_default_to() );
+        $period  = sanitize_text_field( $_GET['ur_period'] ?? 'all' );
+        $from    = self::sanitize_date( $_GET['ur_from'] ?? '' );
+        $to      = self::sanitize_date( $_GET['ur_to'] ?? '' );
         $company = sanitize_text_field( $_GET['ur_company'] ?? '' );
         $export  = sanitize_text_field( $_GET['ur_export'] ?? '' );
+
+        // Resolve period preset to actual from/to dates.
+        $resolved = self::resolve_period( $period, $from, $to );
+        $from     = $resolved['from'];
+        $to       = $resolved['to'];
+        $period_label = $resolved['label'];
 
         $course_map      = self::get_course_ids_map();
         $category_labels = self::get_category_labels();
@@ -96,7 +103,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                 </div>
                 <div>
                     <h2 class="saq-header__title">User Report</h2>
-                    <p class="saq-header__subtitle">Snapshot <?php echo ( $from !== '' && $to !== '' ) ? esc_html( $from ) . ' &mdash; ' . esc_html( $to ) : 'All time'; ?></p>
+                    <p class="saq-header__subtitle">Completion status as of today &middot; <?php echo esc_html( $period_label ); ?></p>
                 </div>
             </div>
 
@@ -128,13 +135,25 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                     </div>
 
                     <div class="saq-filters__group">
-                        <span class="saq-filters__label">From</span>
-                        <input type="date" name="ur_from" id="ur_from" value="<?php echo esc_attr( $from ); ?>" />
+                        <span class="saq-filters__label">Time Period</span>
+                        <select name="ur_period" id="ur_period" onchange="document.getElementById('ur_daterange').style.display=this.value==='custom'?'flex':'none';">
+                            <?php foreach ( self::get_period_options() as $key => $label ) : ?>
+                                <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $period, $key ); ?>>
+                                    <?php echo esc_html( $label ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
-                    <div class="saq-filters__group">
-                        <span class="saq-filters__label">To</span>
-                        <input type="date" name="ur_to" id="ur_to" value="<?php echo esc_attr( $to ); ?>" />
+                    <div class="saq-filters__daterange" id="ur_daterange" style="display: <?php echo $period === 'custom' ? 'flex' : 'none'; ?>; align-items: flex-end; gap: 16px;">
+                        <div class="saq-filters__group">
+                            <span class="saq-filters__label">From</span>
+                            <input type="date" name="ur_from" id="ur_from" value="<?php echo esc_attr( $period === 'custom' ? $from : '' ); ?>" />
+                        </div>
+                        <div class="saq-filters__group">
+                            <span class="saq-filters__label">To</span>
+                            <input type="date" name="ur_to" id="ur_to" value="<?php echo esc_attr( $period === 'custom' ? $to : '' ); ?>" />
+                        </div>
                     </div>
 
                     <button type="submit" class="saq-filters__submit" style="font-family: 'Outfit', system-ui, sans-serif !important; font-size: 14px !important; font-weight: 600 !important; height: 40px !important; padding: 0 24px !important; border: none !important; border-radius: 8px !important; background: linear-gradient(135deg, #111827, #334155) !important; color: #fff !important; line-height: 40px !important; text-transform: none !important; box-shadow: none !important; cursor: pointer; white-space: nowrap; letter-spacing: 0.01em;">Filter</button>
