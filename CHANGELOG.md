@@ -7,17 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2026-03-08
 
+### Added
+
+- Time period filter presets: All time, Last 12 months, Last year, Custom range (both reports)
+- "Completed Date" column in user report table and CSV export
+- "Completed Date" column in course report CSV export
+- Completions by Company donut chart (replaces horizontal bar chart) — only shows companies with completions
+- Period-aware UI labels: "Completed in period" / "Not in period" when date filtering is active
+- Descriptive subtitle explaining what the selected time period means
+
+### Changed
+
+- Report layout now uses full available width instead of max 1120px
+- All critical UI styles use inline attributes to survive Beaver Builder theme overrides
+- Seed data uses realistic `firstname.lastname@domain` emails instead of `testuser_XX@example.com`
+
 ### Fixed
 
 - Domain filtering now correctly **includes** users from `scaleaq.com`, `moenmarin.no`, `maskon.no`, and `scaleaq.academy` (was inverted — previously excluded them)
 - Exclusion patterns now use `user_email NOT LIKE '%pattern%'` instead of `user_login NOT IN (...)`, matching the original Code Snippets logic
 - Default date range changed from hardcoded 2025 to all-time, matching original snippet behavior
-- Header subtitle shows "All time" instead of blank dashes when no date filter is set
-
-### Changed
-
-- Removed conflicting shortcode aliases (`my_course_report_form`, `simple_user_report`) to allow side-by-side testing with live Code Snippets
-- Seed data uses realistic `firstname.lastname@domain` emails instead of `testuser_XX@example.com`
+- Filter button no longer shows as orange pill shape due to theme overrides
 
 ## [1.0.1] - 2026-03-08
 
