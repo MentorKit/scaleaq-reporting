@@ -103,7 +103,11 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                 </div>
                 <div>
                     <h2 class="saq-header__title">User Report</h2>
-                    <p class="saq-header__subtitle">Completion status as of today &middot; <?php echo esc_html( $period_label ); ?></p>
+                    <?php if ( $period === 'all' ) : ?>
+                        <p class="saq-header__subtitle">Showing all completions recorded, regardless of date</p>
+                    <?php else : ?>
+                        <p class="saq-header__subtitle">Only counting completions recorded during: <?php echo esc_html( $period_label ); ?></p>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -205,9 +209,11 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                 <th>First Name</th>
                                 <th>Last Name</th>
                                 <th>Company</th>
-                                <?php if ( $cat !== '' ) : ?>
-                                    <th>Status</th>
-                                    <th>Completed</th>
+                                <?php if ( $cat !== '' ) :
+                                    $has_period = $period !== 'all';
+                                ?>
+                                    <th><?php echo $has_period ? 'Status (in period)' : 'Status'; ?></th>
+                                    <th><?php echo $has_period ? 'Completed Date' : 'Completed'; ?></th>
                                 <?php endif; ?>
                             </tr>
                         </thead>
@@ -226,7 +232,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                         <?php if ( $user_ts ) : ?>
                                             <span class="saq-badge saq-badge--yes"><span class="saq-badge__dot"></span> Completed</span>
                                         <?php else : ?>
-                                            <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> Pending</span>
+                                            <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> <?php echo $has_period ? 'Not in period' : 'Pending'; ?></span>
                                         <?php endif; ?>
                                     </td>
                                     <td><?php echo $user_ts ? esc_html( gmdate( 'd/m/Y', $user_ts ) ) : '&mdash;'; ?></td>

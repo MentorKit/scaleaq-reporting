@@ -147,7 +147,11 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 </div>
                 <div>
                     <h2 class="saq-header__title">Course Completion: <?php echo esc_html( $category_labels[ $cat ] ); ?></h2>
-                    <p class="saq-header__subtitle">Completion status as of today &middot; <?php echo esc_html( $period_label ); ?></p>
+                    <?php if ( $period === 'all' ) : ?>
+                        <p class="saq-header__subtitle">Showing all completions recorded, regardless of date</p>
+                    <?php else : ?>
+                        <p class="saq-header__subtitle">Only counting completions recorded during: <?php echo esc_html( $period_label ); ?></p>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -203,6 +207,12 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 </div>
             </form>
 
+            <?php
+            $has_period    = $period !== 'all';
+            $lbl_completed = $has_period ? 'Completed in period' : 'Completed';
+            $lbl_not       = $has_period ? 'Not in period' : 'Not Completed';
+            $lbl_rate      = $has_period ? 'Rate in period' : 'Completion Rate';
+            ?>
             <!-- Stat Cards -->
             <div class="saq-stats">
                 <div class="saq-stat saq-stat--total">
@@ -211,15 +221,15 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 </div>
                 <div class="saq-stat saq-stat--completed">
                     <div class="saq-stat__value"><?php echo esc_html( $completed ); ?></div>
-                    <div class="saq-stat__label">Completed</div>
+                    <div class="saq-stat__label"><?php echo esc_html( $lbl_completed ); ?></div>
                 </div>
                 <div class="saq-stat saq-stat--pending">
                     <div class="saq-stat__value"><?php echo esc_html( $not_completed ); ?></div>
-                    <div class="saq-stat__label">Not Completed</div>
+                    <div class="saq-stat__label"><?php echo esc_html( $lbl_not ); ?></div>
                 </div>
                 <div class="saq-stat saq-stat--rate">
                     <div class="saq-stat__value"><?php echo esc_html( $completion_pct ); ?>%</div>
-                    <div class="saq-stat__label">Completion Rate</div>
+                    <div class="saq-stat__label"><?php echo esc_html( $lbl_rate ); ?></div>
                 </div>
             </div>
 
