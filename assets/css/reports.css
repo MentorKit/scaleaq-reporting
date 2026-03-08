@@ -49,6 +49,10 @@
 }
 
 /* ---------- Beaver Builder width overrides ---------- */
+.fl-row-content:has(.scaleaq-report) {
+    max-width: none !important;
+}
+
 .fl-module-content:has(.scaleaq-report) {
     margin-left: 0 !important;
     margin-right: 0 !important;
