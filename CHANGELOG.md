@@ -5,6 +5,20 @@ All notable changes to the ScaleAQ Reporting plugin will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-09
+
+### Changed
+
+- Period filter changed from date range (from-to) to cumulative cutoff date — completions are now counted up to the cutoff, so earlier completions are no longer excluded
+- Presets updated: "By end of 2025", "By end of 2024", "Custom cutoff date" (replaces "Last 12 months", "Last year", "Custom range")
+- Filter UI shows single "Cutoff date" input instead of From/To date range when using custom period
+- Labels updated: "Completed by cutoff" / "Not completed by cutoff" instead of "in period" / "Not in period"
+- Subtitle updated: "Showing completions recorded by: {date}" instead of "during"
+
+### Removed
+
+- `from` date parameter (`cr_from` / `ur_from`) — no longer used in queries or export URLs
+
 ## [1.1.0] - 2026-03-08
 
 ### Added

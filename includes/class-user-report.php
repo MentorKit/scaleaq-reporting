@@ -13,14 +13,12 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
 
         $cat     = sanitize_text_field( $_GET['ur_cat'] ?? '' );
         $period  = sanitize_text_field( $_GET['ur_period'] ?? 'all' );
-        $from    = self::sanitize_date( $_GET['ur_from'] ?? '' );
         $to      = self::sanitize_date( $_GET['ur_to'] ?? '' );
         $company = sanitize_text_field( $_GET['ur_company'] ?? '' );
         $export  = sanitize_text_field( $_GET['ur_export'] ?? '' );
 
-        // Resolve period preset to actual from/to dates.
-        $resolved = self::resolve_period( $period, $from, $to );
-        $from     = $resolved['from'];
+        // Resolve period preset to cutoff date.
+        $resolved = self::resolve_period( $period, $to );
         $to       = $resolved['to'];
         $period_label = $resolved['label'];
 
@@ -63,11 +61,6 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
 
             $prepare_args = $course_ids;
 
-            if ( $from !== '' ) {
-                $from_ts      = strtotime( $from . ' 00:00:00' );
-                $activity_sql .= $wpdb->prepare( " AND `{$ts_col}` >= %d", $from_ts );
-            }
-
             if ( $to !== '' ) {
                 $to_ts        = strtotime( $to . ' 23:59:59' );
                 $activity_sql .= $wpdb->prepare( " AND `{$ts_col}` <= %d", $to_ts );
@@ -106,7 +99,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                     <?php if ( $period === 'all' ) : ?>
                         <p class="saq-header__subtitle">Showing all completions recorded, regardless of date</p>
                     <?php else : ?>
-                        <p class="saq-header__subtitle">Only counting completions recorded during: <?php echo esc_html( $period_label ); ?></p>
+                        <p class="saq-header__subtitle">Showing completions recorded by: <?php echo esc_html( $period_label ); ?></p>
                     <?php endif; ?>
                 </div>
             </div>
@@ -151,11 +144,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
 
                     <div class="saq-filters__daterange" id="ur_daterange" style="display: <?php echo $period === 'custom' ? 'flex' : 'none'; ?>; align-items: flex-end; gap: 16px;">
                         <div class="saq-filters__group">
-                            <span class="saq-filters__label">From</span>
-                            <input type="date" name="ur_from" id="ur_from" value="<?php echo esc_attr( $period === 'custom' ? $from : '' ); ?>" />
-                        </div>
-                        <div class="saq-filters__group">
-                            <span class="saq-filters__label">To</span>
+                            <span class="saq-filters__label">Cutoff date</span>
                             <input type="date" name="ur_to" id="ur_to" value="<?php echo esc_attr( $period === 'custom' ? $to : '' ); ?>" />
                         </div>
                     </div>
@@ -188,7 +177,6 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                     <?php
                     $csv_url = add_query_arg( array(
                         'ur_cat'     => $cat,
-                        'ur_from'    => $from,
                         'ur_to'      => $to,
                         'ur_company' => $company,
                         'ur_export'  => '1',
@@ -212,7 +200,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                 <?php if ( $cat !== '' ) :
                                     $has_period = $period !== 'all';
                                 ?>
-                                    <th><?php echo $has_period ? 'Status (in period)' : 'Status'; ?></th>
+                                    <th><?php echo $has_period ? 'Status (by cutoff)' : 'Status'; ?></th>
                                     <th><?php echo $has_period ? 'Completed Date' : 'Completed'; ?></th>
                                 <?php endif; ?>
                             </tr>
@@ -232,7 +220,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                         <?php if ( $user_ts ) : ?>
                                             <span class="saq-badge saq-badge--yes"><span class="saq-badge__dot"></span> Completed</span>
                                         <?php else : ?>
-                                            <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> <?php echo $has_period ? 'Not in period' : 'Pending'; ?></span>
+                                            <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> <?php echo $has_period ? 'Not completed' : 'Pending'; ?></span>
                                         <?php endif; ?>
                                     </td>
                                     <td><?php echo $user_ts ? esc_html( gmdate( 'd/m/Y', $user_ts ) ) : '&mdash;'; ?></td>
