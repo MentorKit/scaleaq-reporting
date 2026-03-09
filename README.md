@@ -17,8 +17,8 @@ WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and u
 
 ### Filters (query parameters)
 
-**Course report:** `cr_cat`, `cr_from`, `cr_to`, `cr_company`, `cr_export`
-**User report:** `ur_cat`, `ur_from`, `ur_to`, `ur_company`, `ur_export`
+**Course report:** `cr_cat`, `cr_period`, `cr_to`, `cr_company`, `cr_export`
+**User report:** `ur_cat`, `ur_period`, `ur_to`, `ur_company`, `ur_export`
 
 ## Course categories
 

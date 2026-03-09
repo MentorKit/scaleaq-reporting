@@ -13,14 +13,12 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
 
         $cat     = sanitize_text_field( $_GET['cr_cat'] ?? 'hse' );
         $period  = sanitize_text_field( $_GET['cr_period'] ?? 'all' );
-        $from    = self::sanitize_date( $_GET['cr_from'] ?? '' );
         $to      = self::sanitize_date( $_GET['cr_to'] ?? '' );
         $company = sanitize_text_field( $_GET['cr_company'] ?? '' );
         $export  = sanitize_text_field( $_GET['cr_export'] ?? '' );
 
-        // Resolve period preset to actual from/to dates.
-        $resolved = self::resolve_period( $period, $from, $to );
-        $from     = $resolved['from'];
+        // Resolve period preset to cutoff date.
+        $resolved = self::resolve_period( $period, $to );
         $to       = $resolved['to'];
         $period_label = $resolved['label'];
 
@@ -64,11 +62,6 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 AND post_id IN ({$placeholders})";
 
         $prepare_args = $course_ids;
-
-        if ( $from !== '' ) {
-            $from_ts      = strtotime( $from . ' 00:00:00' );
-            $activity_sql .= $wpdb->prepare( " AND `{$ts_col}` >= %d", $from_ts );
-        }
 
         if ( $to !== '' ) {
             $to_ts        = strtotime( $to . ' 23:59:59' );
@@ -150,7 +143,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     <?php if ( $period === 'all' ) : ?>
                         <p class="saq-header__subtitle">Showing all completions recorded, regardless of date</p>
                     <?php else : ?>
-                        <p class="saq-header__subtitle">Only counting completions recorded during: <?php echo esc_html( $period_label ); ?></p>
+                        <p class="saq-header__subtitle">Showing completions recorded by: <?php echo esc_html( $period_label ); ?></p>
                     <?php endif; ?>
                 </div>
             </div>
@@ -194,11 +187,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
 
                     <div class="saq-filters__daterange" id="cr_daterange" style="display: <?php echo $period === 'custom' ? 'flex' : 'none'; ?>; align-items: flex-end; gap: 16px;">
                         <div class="saq-filters__group">
-                            <span class="saq-filters__label">From</span>
-                            <input type="date" name="cr_from" id="cr_from" value="<?php echo esc_attr( $period === 'custom' ? $from : '' ); ?>" />
-                        </div>
-                        <div class="saq-filters__group">
-                            <span class="saq-filters__label">To</span>
+                            <span class="saq-filters__label">Cutoff date</span>
                             <input type="date" name="cr_to" id="cr_to" value="<?php echo esc_attr( $period === 'custom' ? $to : '' ); ?>" />
                         </div>
                     </div>
@@ -209,9 +198,9 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
 
             <?php
             $has_period    = $period !== 'all';
-            $lbl_completed = $has_period ? 'Completed in period' : 'Completed';
-            $lbl_not       = $has_period ? 'Not in period' : 'Not Completed';
-            $lbl_rate      = $has_period ? 'Rate in period' : 'Completion Rate';
+            $lbl_completed = $has_period ? 'Completed by cutoff' : 'Completed';
+            $lbl_not       = $has_period ? 'Not completed by cutoff' : 'Not Completed';
+            $lbl_rate      = $has_period ? 'Rate by cutoff' : 'Completion Rate';
             ?>
             <!-- Stat Cards -->
             <div class="saq-stats">
@@ -352,7 +341,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 <?php
                 $export_url = add_query_arg( array(
                     'cr_cat'     => $cat,
-                    'cr_from'    => $from,
+                    'cr_period'  => $period,
                     'cr_to'      => $to,
                     'cr_company' => $company,
                     'cr_export'  => '1',

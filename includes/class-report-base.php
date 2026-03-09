@@ -6,10 +6,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 abstract class ScaleAQ_Report_Base {
 
-    public static function get_default_from() {
-        return '';
-    }
-
     public static function get_default_to() {
         return '';
     }
@@ -90,45 +86,32 @@ abstract class ScaleAQ_Report_Base {
     }
 
     /**
-     * Resolve a period preset to from/to dates.
+     * Resolve a period preset to a cumulative cutoff date.
      *
-     * @param string $period  One of: all, 12m, last_year, custom.
-     * @param string $from    Custom from date (only used when period=custom).
-     * @param string $to      Custom to date (only used when period=custom).
-     * @return array { 'from' => string, 'to' => string, 'label' => string }
+     * @param string $period  One of: all, 2025, 2024, custom.
+     * @param string $to      Custom cutoff date (only used when period=custom).
+     * @return array { 'to' => string, 'label' => string }
      */
-    public static function resolve_period( $period, $from = '', $to = '' ) {
+    public static function resolve_period( $period, $to = '' ) {
         switch ( $period ) {
-            case '12m':
+            case '2025':
                 return array(
-                    'from'  => gmdate( 'Y-m-d', strtotime( '-12 months' ) ),
-                    'to'    => gmdate( 'Y-m-d' ),
-                    'label' => 'Last 12 months',
+                    'to'    => '2025-12-31',
+                    'label' => 'By 31.12.2025',
                 );
-            case 'last_year':
-                $year = (int) gmdate( 'Y' ) - 1;
+            case '2024':
                 return array(
-                    'from'  => $year . '-01-01',
-                    'to'    => $year . '-12-31',
-                    'label' => (string) $year,
+                    'to'    => '2024-12-31',
+                    'label' => 'By 31.12.2024',
                 );
             case 'custom':
-                $label = 'Custom range';
-                if ( $from !== '' && $to !== '' ) {
-                    $label = $from . ' — ' . $to;
-                } elseif ( $from !== '' ) {
-                    $label = 'From ' . $from;
-                } elseif ( $to !== '' ) {
-                    $label = 'Until ' . $to;
-                }
+                $label = $to !== '' ? 'By ' . $to : 'Custom cutoff date';
                 return array(
-                    'from'  => $from,
                     'to'    => $to,
                     'label' => $label,
                 );
             default: // 'all'
                 return array(
-                    'from'  => '',
                     'to'    => '',
                     'label' => 'All time',
                 );
@@ -137,10 +120,10 @@ abstract class ScaleAQ_Report_Base {
 
     public static function get_period_options() {
         return array(
-            'all'       => 'All time',
-            '12m'       => 'Last 12 months',
-            'last_year' => 'Last year (' . ( (int) gmdate( 'Y' ) - 1 ) . ')',
-            'custom'    => 'Custom range',
+            'all'    => 'All time',
+            '2025'   => 'By end of 2025',
+            '2024'   => 'By end of 2024',
+            'custom' => 'Custom cutoff date',
         );
     }
 
