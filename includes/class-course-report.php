@@ -341,6 +341,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 <?php
                 $export_url = add_query_arg( array(
                     'cr_cat'     => $cat,
+                    'cr_period'  => $period,
                     'cr_to'      => $to,
                     'cr_company' => $company,
                     'cr_export'  => '1',

@@ -177,6 +177,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                     <?php
                     $csv_url = add_query_arg( array(
                         'ur_cat'     => $cat,
+                        'ur_period'  => $period,
                         'ur_to'      => $to,
                         'ur_company' => $company,
                         'ur_export'  => '1',
