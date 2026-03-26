@@ -398,6 +398,33 @@ tr.saq-drilldown--open {
     line-height: 1;
 }
 
+/* Clickable stat cards */
+.saq-stat--clickable {
+    cursor: pointer;
+    transition: box-shadow var(--saq-transition), transform var(--saq-transition);
+    user-select: none;
+}
+
+.saq-stat--clickable:hover {
+    box-shadow: var(--saq-shadow-md);
+    transform: translateY(-2px);
+}
+
+.saq-stat--clickable:active {
+    transform: translateY(0);
+}
+
+.saq-stat--clickable .saq-stat__value {
+    color: var(--saq-teal-500);
+}
+
+.saq-stat--clickable .saq-stat__label {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--saq-slate-400);
+}
+
 /* ---------- Stat Cards ---------- */
 .saq-stats {
     display: grid;

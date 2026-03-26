@@ -210,16 +210,12 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     <div class="saq-stat__value"><?php echo esc_html( $total ); ?></div>
                     <div class="saq-stat__label">Total Users</div>
                 </div>
-                <div class="saq-stat saq-stat--completed">
-                    <div class="saq-stat__value">
-                        <button type="button" class="saq-drilldown-toggle saq-drilldown-toggle--stat" onclick="document.getElementById('saq-dd-completed').classList.toggle('saq-drilldown--open')"><?php echo esc_html( $completed ); ?></button>
-                    </div>
+                <div class="saq-stat saq-stat--completed saq-stat--clickable" onclick="document.getElementById('saq-dd-completed').classList.toggle('saq-drilldown--open')" role="button" tabindex="0">
+                    <div class="saq-stat__value"><?php echo esc_html( $completed ); ?></div>
                     <div class="saq-stat__label"><?php echo esc_html( $lbl_completed ); ?></div>
                 </div>
-                <div class="saq-stat saq-stat--pending">
-                    <div class="saq-stat__value">
-                        <button type="button" class="saq-drilldown-toggle saq-drilldown-toggle--stat" onclick="document.getElementById('saq-dd-not-completed').classList.toggle('saq-drilldown--open')"><?php echo esc_html( $not_completed ); ?></button>
-                    </div>
+                <div class="saq-stat saq-stat--pending saq-stat--clickable" onclick="document.getElementById('saq-dd-not-completed').classList.toggle('saq-drilldown--open')" role="button" tabindex="0">
+                    <div class="saq-stat__value"><?php echo esc_html( $not_completed ); ?></div>
                     <div class="saq-stat__label"><?php echo esc_html( $lbl_not ); ?></div>
                 </div>
                 <div class="saq-stat saq-stat--rate">
