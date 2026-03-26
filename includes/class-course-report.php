@@ -227,7 +227,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             <!-- Drill-Down: All Users -->
             <div class="saq-drilldown" id="saq-dd-all-users">
                 <div class="saq-card">
-                    <p class="saq-card__label">All Users (<?php echo $total; ?>)</p>
+                    <p class="saq-card__label">All Users (<?php echo esc_html( $total ); ?>)</p>
                     <div class="saq-table-wrap">
                         <table class="saq-table">
                             <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Status</th></tr></thead>
@@ -258,7 +258,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             <!-- Drill-Down: Completed Users -->
             <div class="saq-drilldown" id="saq-dd-completed">
                 <div class="saq-card">
-                    <p class="saq-card__label">Completed Users (<?php echo count( $completed_users ); ?>)</p>
+                    <p class="saq-card__label">Completed Users (<?php echo esc_html( count( $completed_users ) ); ?>)</p>
                     <div class="saq-table-wrap">
                         <table class="saq-table">
                             <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th></tr></thead>
@@ -281,7 +281,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             <!-- Drill-Down: Not Completed Users -->
             <div class="saq-drilldown" id="saq-dd-not-completed">
                 <div class="saq-card">
-                    <p class="saq-card__label">Not Completed Users (<?php echo count( $not_completed_users ); ?>)</p>
+                    <p class="saq-card__label">Not Completed Users (<?php echo esc_html( count( $not_completed_users ) ); ?>)</p>
                     <div class="saq-table-wrap">
                         <table class="saq-table">
                             <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th></tr></thead>
@@ -486,7 +486,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                             <tr class="saq-drilldown" id="saq-dd-grp-c-<?php echo esc_attr( $gslug ); ?>">
                                 <td colspan="5" style="padding: 0;">
                                     <div class="saq-drilldown__inner">
-                                        <p class="saq-card__label">Completed — <?php echo esc_html( $gname ); ?> (<?php echo count( $group_completed[ $gname ] ); ?>)</p>
+                                        <p class="saq-card__label">Completed — <?php echo esc_html( $gname ); ?> (<?php echo esc_html( count( $group_completed[ $gname ] ) ); ?>)</p>
                                         <table class="saq-table saq-table--nested">
                                             <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th></tr></thead>
                                             <tbody>
@@ -509,7 +509,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                             <tr class="saq-drilldown" id="saq-dd-grp-nc-<?php echo esc_attr( $gslug ); ?>">
                                 <td colspan="5" style="padding: 0;">
                                     <div class="saq-drilldown__inner">
-                                        <p class="saq-card__label">Not Completed — <?php echo esc_html( $gname ); ?> (<?php echo count( $group_not_completed[ $gname ] ); ?>)</p>
+                                        <p class="saq-card__label">Not Completed — <?php echo esc_html( $gname ); ?> (<?php echo esc_html( count( $group_not_completed[ $gname ] ) ); ?>)</p>
                                         <table class="saq-table saq-table--nested">
                                             <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th></tr></thead>
                                             <tbody>
@@ -552,7 +552,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
 
         </div>
         <?php
-        self::render_multiselect_js();
+        self::enqueue_reports_js();
         return ob_get_clean();
     }
 

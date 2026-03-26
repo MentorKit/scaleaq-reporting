@@ -182,7 +182,7 @@ abstract class ScaleAQ_Report_Base {
             </button>
             <div class="saq-multiselect__dropdown">
                 <label class="saq-multiselect__option saq-multiselect__option--all">
-                    <input type="checkbox" data-saq-all>
+                    <input type="checkbox" data-saq-all<?php echo ( $count > 0 && $count === $total ) ? ' checked' : ''; ?>>
                     <span>Select All</span>
                 </label>
                 <?php foreach ( $options as $c ) : ?>
@@ -197,99 +197,16 @@ abstract class ScaleAQ_Report_Base {
     }
 
     /**
-     * Render inline JS for multi-select dropdowns (once per page).
+     * Enqueue the reports JS (once per page).
      */
-    public static function render_multiselect_js() {
-        static $rendered = false;
-        if ( $rendered ) {
-            return;
-        }
-        $rendered = true;
-        ?>
-        <script>
-        (function(){
-            function updateLabel(ms){
-                var checked=ms.querySelectorAll('.saq-multiselect__dropdown input[type=checkbox]:checked:not([data-saq-all])');
-                var total=ms.querySelectorAll('.saq-multiselect__dropdown input[type=checkbox]:not([data-saq-all])');
-                var txt=ms.querySelector('.saq-multiselect__text');
-                if(checked.length===0||checked.length===total.length){
-                    txt.textContent='All Companies';
-                }else if(checked.length===1){
-                    txt.textContent=checked[0].value;
-                }else{
-                    txt.textContent=checked.length+' companies selected';
-                }
-            }
-            /* Event delegation — works for all dropdowns regardless of render order. */
-            document.addEventListener('click',function(e){
-                var toggle=e.target.closest('.saq-multiselect__toggle');
-                if(toggle){
-                    e.preventDefault();
-                    var ms=toggle.closest('.saq-multiselect');
-                    var open=ms.classList.toggle('saq-multiselect--open');
-                    toggle.setAttribute('aria-expanded',open?'true':'false');
-                    /* Close other open dropdowns */
-                    document.querySelectorAll('.saq-multiselect--open').forEach(function(other){
-                        if(other!==ms){
-                            other.classList.remove('saq-multiselect--open');
-                            other.querySelector('.saq-multiselect__toggle').setAttribute('aria-expanded','false');
-                        }
-                    });
-                    return;
-                }
-                /* Close all if click outside */
-                if(!e.target.closest('.saq-multiselect')){
-                    document.querySelectorAll('.saq-multiselect--open').forEach(function(ms){
-                        ms.classList.remove('saq-multiselect--open');
-                        ms.querySelector('.saq-multiselect__toggle').setAttribute('aria-expanded','false');
-                    });
-                }
-            });
-            document.addEventListener('change',function(e){
-                var cb=e.target;
-                if(!cb.closest('.saq-multiselect__dropdown'))return;
-                var ms=cb.closest('.saq-multiselect');
-                if(cb.hasAttribute('data-saq-all')){
-                    var dd=cb.closest('.saq-multiselect__dropdown');
-                    dd.querySelectorAll('input[type=checkbox]:not([data-saq-all])').forEach(function(box){
-                        box.checked=cb.checked;
-                    });
-                }else{
-                    var dd=ms.querySelector('.saq-multiselect__dropdown');
-                    var boxes=dd.querySelectorAll('input[type=checkbox]:not([data-saq-all])');
-                    var allCb=dd.querySelector('[data-saq-all]');
-                    if(allCb){
-                        var allChecked=true;
-                        boxes.forEach(function(b){if(!b.checked)allChecked=false;});
-                        allCb.checked=allChecked;
-                    }
-                }
-                updateLabel(ms);
-            });
-            /* Stat card drill-down: exclusive toggle with active state */
-            document.addEventListener('click',function(e){
-                var card=e.target.closest('[data-saq-dd]');
-                if(!card)return;
-                var targetId=card.getAttribute('data-saq-dd');
-                var panel=document.getElementById(targetId);
-                if(!panel)return;
-                var isOpen=panel.classList.contains('saq-drilldown--open');
-                /* Close all panels and deactivate all cards */
-                document.querySelectorAll('[data-saq-dd]').forEach(function(c){
-                    c.classList.remove('saq-stat--active');
-                });
-                document.querySelectorAll('.saq-drilldown').forEach(function(p){
-                    p.classList.remove('saq-drilldown--open');
-                });
-                /* Toggle: if was closed, open it */
-                if(!isOpen){
-                    panel.classList.add('saq-drilldown--open');
-                    card.classList.add('saq-stat--active');
-                }
-            });
-        })();
-        </script>
-        <?php
+    public static function enqueue_reports_js() {
+        wp_enqueue_script(
+            'scaleaq-reports',
+            SCALEAQ_REPORTING_URL . 'assets/js/reports.js',
+            array(),
+            SCALEAQ_REPORTING_VER,
+            true
+        );
     }
 
     public static function get_period_options() {

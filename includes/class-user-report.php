@@ -231,7 +231,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
 
         </div>
         <?php
-        self::render_multiselect_js();
+        self::enqueue_reports_js();
         return ob_get_clean();
     }
 
