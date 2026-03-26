@@ -346,6 +346,61 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 <?php endif; ?>
             </div>
 
+            <?php
+            // Per-company breakdown when multiple companies are selected (or all).
+            $show_company_table = count( $by_company ) > 1;
+            if ( $show_company_table ) :
+                // Sort by company name.
+                ksort( $by_company );
+            ?>
+            <!-- Company Completion Table -->
+            <div class="saq-card">
+                <p class="saq-card__label">Company Completion Rates</p>
+                <div class="saq-table-wrap">
+                    <table class="saq-table">
+                        <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>Total</th>
+                                <th>Completed</th>
+                                <th>Not Completed</th>
+                                <th style="min-width: 180px;">Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $by_company as $cname => $cstats ) :
+                                $c_rate = $cstats['total'] > 0
+                                    ? round( ( $cstats['completed'] / $cstats['total'] ) * 100, 1 )
+                                    : 0;
+                                $c_fill_class = 'saq-progress__fill--high';
+                                if ( $c_rate < 33 ) {
+                                    $c_fill_class = 'saq-progress__fill--low';
+                                } elseif ( $c_rate < 66 ) {
+                                    $c_fill_class = 'saq-progress__fill--mid';
+                                }
+                                $c_not = $cstats['total'] - $cstats['completed'];
+                            ?>
+                            <tr>
+                                <td><strong><?php echo esc_html( $cname ); ?></strong></td>
+                                <td><?php echo esc_html( $cstats['total'] ); ?></td>
+                                <td><?php echo esc_html( $cstats['completed'] ); ?></td>
+                                <td><?php echo esc_html( $c_not ); ?></td>
+                                <td>
+                                    <div class="saq-progress">
+                                        <div class="saq-progress__bar">
+                                            <div class="saq-progress__fill <?php echo esc_attr( $c_fill_class ); ?>" style="width: <?php echo esc_attr( $c_rate ); ?>%;"></div>
+                                        </div>
+                                        <span class="saq-progress__text"><?php echo esc_html( $c_rate ); ?>%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- Group Completion Table -->
             <div class="saq-card">
                 <p class="saq-card__label">Group Completion Rates</p>
