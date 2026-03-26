@@ -266,6 +266,27 @@ abstract class ScaleAQ_Report_Base {
                 }
                 updateLabel(ms);
             });
+            /* Stat card drill-down: exclusive toggle with active state */
+            document.addEventListener('click',function(e){
+                var card=e.target.closest('[data-saq-dd]');
+                if(!card)return;
+                var targetId=card.getAttribute('data-saq-dd');
+                var panel=document.getElementById(targetId);
+                if(!panel)return;
+                var isOpen=panel.classList.contains('saq-drilldown--open');
+                /* Close all panels and deactivate all cards */
+                document.querySelectorAll('[data-saq-dd]').forEach(function(c){
+                    c.classList.remove('saq-stat--active');
+                });
+                document.querySelectorAll('.saq-drilldown').forEach(function(p){
+                    p.classList.remove('saq-drilldown--open');
+                });
+                /* Toggle: if was closed, open it */
+                if(!isOpen){
+                    panel.classList.add('saq-drilldown--open');
+                    card.classList.add('saq-stat--active');
+                }
+            });
         })();
         </script>
         <?php

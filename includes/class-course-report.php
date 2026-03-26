@@ -206,21 +206,52 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             ?>
             <!-- Stat Cards -->
             <div class="saq-stats">
-                <div class="saq-stat saq-stat--total">
+                <div class="saq-stat saq-stat--total saq-stat--clickable" data-saq-dd="saq-dd-all-users" role="button" tabindex="0">
                     <div class="saq-stat__value"><?php echo esc_html( $total ); ?></div>
                     <div class="saq-stat__label">Total Users</div>
                 </div>
-                <div class="saq-stat saq-stat--completed saq-stat--clickable" onclick="document.getElementById('saq-dd-completed').classList.toggle('saq-drilldown--open')" role="button" tabindex="0">
+                <div class="saq-stat saq-stat--completed saq-stat--clickable" data-saq-dd="saq-dd-completed" role="button" tabindex="0">
                     <div class="saq-stat__value"><?php echo esc_html( $completed ); ?></div>
                     <div class="saq-stat__label"><?php echo esc_html( $lbl_completed ); ?></div>
                 </div>
-                <div class="saq-stat saq-stat--pending saq-stat--clickable" onclick="document.getElementById('saq-dd-not-completed').classList.toggle('saq-drilldown--open')" role="button" tabindex="0">
+                <div class="saq-stat saq-stat--pending saq-stat--clickable" data-saq-dd="saq-dd-not-completed" role="button" tabindex="0">
                     <div class="saq-stat__value"><?php echo esc_html( $not_completed ); ?></div>
                     <div class="saq-stat__label"><?php echo esc_html( $lbl_not ); ?></div>
                 </div>
                 <div class="saq-stat saq-stat--rate">
                     <div class="saq-stat__value"><?php echo esc_html( $completion_pct ); ?>%</div>
                     <div class="saq-stat__label"><?php echo esc_html( $lbl_rate ); ?></div>
+                </div>
+            </div>
+
+            <!-- Drill-Down: All Users -->
+            <div class="saq-drilldown" id="saq-dd-all-users">
+                <div class="saq-card">
+                    <p class="saq-card__label">All Users (<?php echo $total; ?>)</p>
+                    <div class="saq-table-wrap">
+                        <table class="saq-table">
+                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Status</th></tr></thead>
+                            <tbody>
+                            <?php foreach ( $users as $u ) :
+                                $u_done = isset( $completed_set[ $u->ID ] );
+                            ?>
+                                <tr>
+                                    <td><?php echo esc_html( $u->first_name ); ?></td>
+                                    <td><?php echo esc_html( $u->last_name ); ?></td>
+                                    <td><?php echo esc_html( $u->user_email ); ?></td>
+                                    <td><?php echo esc_html( $u->company ?? '' ); ?></td>
+                                    <td>
+                                        <?php if ( $u_done ) : ?>
+                                            <span class="saq-badge saq-badge--yes"><span class="saq-badge__dot"></span> Completed</span>
+                                        <?php else : ?>
+                                            <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> Not completed</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
