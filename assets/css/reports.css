@@ -153,6 +153,8 @@
     flex-wrap: wrap;
     align-items: flex-end;
     gap: 16px;
+    position: relative;
+    z-index: 10;
 }
 
 .saq-filters__group {
@@ -239,6 +241,161 @@
 .saq-filters__submit:active,
 .scaleaq-report .saq-filters__submit:active {
     transform: translateY(0);
+}
+
+/* ---------- Multi-Select Dropdown ---------- */
+.saq-multiselect {
+    position: relative;
+    min-width: 180px;
+}
+
+.saq-multiselect__toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--saq-font-body);
+    font-size: 14px;
+    height: 40px;
+    width: 100%;
+    padding: 0 12px;
+    border: 1px solid var(--saq-slate-300);
+    border-radius: var(--saq-radius-sm);
+    background: var(--saq-surface);
+    color: var(--saq-text);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color var(--saq-transition), box-shadow var(--saq-transition);
+}
+
+.saq-multiselect__toggle:focus {
+    outline: none;
+    border-color: var(--saq-teal-500);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+
+.saq-multiselect__text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.saq-multiselect__chevron {
+    flex-shrink: 0;
+    color: var(--saq-slate-500);
+    transition: transform var(--saq-transition);
+}
+
+.saq-multiselect--open .saq-multiselect__chevron {
+    transform: rotate(180deg);
+}
+
+.saq-multiselect__dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--saq-surface);
+    border: 1px solid var(--saq-slate-300);
+    border-radius: var(--saq-radius-sm);
+    box-shadow: var(--saq-shadow-lg);
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 50;
+    padding: 4px 0;
+}
+
+.saq-multiselect--open .saq-multiselect__dropdown {
+    display: block;
+}
+
+.saq-multiselect__option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-family: var(--saq-font-body);
+    font-size: 14px;
+    color: var(--saq-text);
+    cursor: pointer;
+    transition: background var(--saq-transition);
+    user-select: none;
+}
+
+.saq-multiselect__option:hover {
+    background: var(--saq-slate-50);
+}
+
+.saq-multiselect__option--all {
+    border-bottom: 1px solid var(--saq-slate-200);
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.saq-multiselect__option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    accent-color: var(--saq-teal-500);
+    cursor: pointer;
+}
+
+/* ---------- Drill-Down Panels ---------- */
+.saq-drilldown {
+    display: none;
+}
+
+.saq-drilldown--open {
+    display: block;
+}
+
+tr.saq-drilldown--open {
+    display: table-row;
+}
+
+.saq-drilldown__inner {
+    padding: 16px 24px 24px;
+    background: var(--saq-slate-50);
+}
+
+.saq-drilldown__inner .saq-card__label {
+    margin-bottom: 12px;
+}
+
+.saq-table--nested {
+    font-size: 13px;
+}
+
+.saq-table--nested thead th {
+    background: var(--saq-slate-50);
+}
+
+.saq-drilldown-toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--saq-teal-500);
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    transition: color var(--saq-transition);
+}
+
+.saq-drilldown-toggle:hover {
+    color: var(--saq-slate-900);
+}
+
+.saq-drilldown-toggle--stat {
+    font-family: var(--saq-font-display);
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
 }
 
 /* ---------- Stat Cards ---------- */
@@ -771,5 +928,13 @@
     .saq-table thead th,
     .saq-table tbody td {
         padding: 10px 12px;
+    }
+
+    .saq-multiselect {
+        width: 100%;
+    }
+
+    .saq-drilldown-toggle--stat {
+        font-size: 26px;
     }
 }

@@ -14,7 +14,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
         $cat     = sanitize_text_field( $_GET['cr_cat'] ?? 'hse' );
         $period  = sanitize_text_field( $_GET['cr_period'] ?? 'all' );
         $to      = self::sanitize_date( $_GET['cr_to'] ?? '' );
-        $company = sanitize_text_field( $_GET['cr_company'] ?? '' );
+        $companies_selected = self::sanitize_companies( $_GET['cr_company'] ?? array() );
         $export  = sanitize_text_field( $_GET['cr_export'] ?? '' );
 
         // Resolve period preset to cutoff date.
@@ -46,8 +46,8 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
         sort( $companies );
 
         // Filter users by company if selected.
-        if ( $company !== '' ) {
-            $extra_where = $wpdb->prepare( "AND ms.meta_value = %s", $company );
+        if ( ! empty( $companies_selected ) ) {
+            $extra_where = self::build_company_where( $companies_selected );
             $users       = $wpdb->get_results( self::get_base_user_query( $extra_where ) );
         } else {
             $users = $all_users;
@@ -77,15 +77,19 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             $completed_set[ $row->user_id ] = (int) $row->completed_ts;
         }
 
-        // Tally stats.
-        $total         = count( $users );
-        $completed     = 0;
-        $by_company    = array();
-        $by_group      = array(
+        // Tally stats + build drill-down user lists.
+        $total              = count( $users );
+        $completed          = 0;
+        $by_company         = array();
+        $completed_users    = array();
+        $not_completed_users = array();
+        $by_group           = array(
             'Moen Marin AS' => array( 'total' => 0, 'completed' => 0 ),
             'ScaleAQ Group' => array( 'total' => 0, 'completed' => 0 ),
             'Other'         => array( 'total' => 0, 'completed' => 0 ),
         );
+        $group_completed     = array( 'Moen Marin AS' => array(), 'ScaleAQ Group' => array(), 'Other' => array() );
+        $group_not_completed = array( 'Moen Marin AS' => array(), 'ScaleAQ Group' => array(), 'Other' => array() );
 
         foreach ( $users as $u ) {
             $done        = isset( $completed_set[ $u->ID ] );
@@ -94,6 +98,11 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
 
             if ( $done ) {
                 $completed++;
+                $completed_users[] = $u;
+                $group_completed[ $group_label ][] = $u;
+            } else {
+                $not_completed_users[] = $u;
+                $group_not_completed[ $group_label ][] = $u;
             }
 
             if ( ! isset( $by_company[ $comp_name ] ) ) {
@@ -149,7 +158,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             </div>
 
             <!-- Filters -->
-            <form method="get" class="saq-card" style="animation-delay: 0s;">
+            <form method="get" class="saq-card" style="animation-delay: 0s; position: relative; z-index: 10;">
                 <div class="saq-filters">
                     <div class="saq-filters__group saq-filters__group--grow">
                         <span class="saq-filters__label">Category</span>
@@ -164,14 +173,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
 
                     <div class="saq-filters__group saq-filters__group--grow">
                         <span class="saq-filters__label">Company</span>
-                        <select name="cr_company" id="cr_company">
-                            <option value="">All Companies</option>
-                            <?php foreach ( $companies as $c ) : ?>
-                                <option value="<?php echo esc_attr( $c ); ?>" <?php selected( $company, $c ); ?>>
-                                    <?php echo esc_html( $c ); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <?php self::render_multiselect( 'cr_company', $companies, $companies_selected ); ?>
                     </div>
 
                     <div class="saq-filters__group">
@@ -209,16 +211,65 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     <div class="saq-stat__label">Total Users</div>
                 </div>
                 <div class="saq-stat saq-stat--completed">
-                    <div class="saq-stat__value"><?php echo esc_html( $completed ); ?></div>
+                    <div class="saq-stat__value">
+                        <button type="button" class="saq-drilldown-toggle saq-drilldown-toggle--stat" onclick="document.getElementById('saq-dd-completed').classList.toggle('saq-drilldown--open')"><?php echo esc_html( $completed ); ?></button>
+                    </div>
                     <div class="saq-stat__label"><?php echo esc_html( $lbl_completed ); ?></div>
                 </div>
                 <div class="saq-stat saq-stat--pending">
-                    <div class="saq-stat__value"><?php echo esc_html( $not_completed ); ?></div>
+                    <div class="saq-stat__value">
+                        <button type="button" class="saq-drilldown-toggle saq-drilldown-toggle--stat" onclick="document.getElementById('saq-dd-not-completed').classList.toggle('saq-drilldown--open')"><?php echo esc_html( $not_completed ); ?></button>
+                    </div>
                     <div class="saq-stat__label"><?php echo esc_html( $lbl_not ); ?></div>
                 </div>
                 <div class="saq-stat saq-stat--rate">
                     <div class="saq-stat__value"><?php echo esc_html( $completion_pct ); ?>%</div>
                     <div class="saq-stat__label"><?php echo esc_html( $lbl_rate ); ?></div>
+                </div>
+            </div>
+
+            <!-- Drill-Down: Completed Users -->
+            <div class="saq-drilldown" id="saq-dd-completed">
+                <div class="saq-card">
+                    <p class="saq-card__label">Completed Users (<?php echo count( $completed_users ); ?>)</p>
+                    <div class="saq-table-wrap">
+                        <table class="saq-table">
+                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th></tr></thead>
+                            <tbody>
+                            <?php foreach ( $completed_users as $u ) : ?>
+                                <tr>
+                                    <td><?php echo esc_html( $u->first_name ); ?></td>
+                                    <td><?php echo esc_html( $u->last_name ); ?></td>
+                                    <td><?php echo esc_html( $u->user_email ); ?></td>
+                                    <td><?php echo esc_html( $u->company ?? '' ); ?></td>
+                                    <td><?php echo esc_html( gmdate( 'd/m/Y', $completed_set[ $u->ID ] ) ); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drill-Down: Not Completed Users -->
+            <div class="saq-drilldown" id="saq-dd-not-completed">
+                <div class="saq-card">
+                    <p class="saq-card__label">Not Completed Users (<?php echo count( $not_completed_users ); ?>)</p>
+                    <div class="saq-table-wrap">
+                        <table class="saq-table">
+                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th></tr></thead>
+                            <tbody>
+                            <?php foreach ( $not_completed_users as $u ) : ?>
+                                <tr>
+                                    <td><?php echo esc_html( $u->first_name ); ?></td>
+                                    <td><?php echo esc_html( $u->last_name ); ?></td>
+                                    <td><?php echo esc_html( $u->user_email ); ?></td>
+                                    <td><?php echo esc_html( $u->company ?? '' ); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -305,6 +356,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                                 <th>Group</th>
                                 <th>Total</th>
                                 <th>Completed</th>
+                                <th>Not Completed</th>
                                 <th style="min-width: 180px;">Rate</th>
                             </tr>
                         </thead>
@@ -319,11 +371,26 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                                 } elseif ( $rate < 66 ) {
                                     $fill_class = 'saq-progress__fill--mid';
                                 }
+                                $gslug       = sanitize_title( $gname );
+                                $g_not_count = $gstats['total'] - $gstats['completed'];
                             ?>
                             <tr>
                                 <td><strong><?php echo esc_html( $gname ); ?></strong></td>
                                 <td><?php echo esc_html( $gstats['total'] ); ?></td>
-                                <td><?php echo esc_html( $gstats['completed'] ); ?></td>
+                                <td>
+                                    <?php if ( $gstats['completed'] > 0 ) : ?>
+                                        <button type="button" class="saq-drilldown-toggle" onclick="document.getElementById('saq-dd-grp-c-<?php echo esc_attr( $gslug ); ?>').classList.toggle('saq-drilldown--open')"><?php echo esc_html( $gstats['completed'] ); ?></button>
+                                    <?php else : ?>
+                                        <?php echo esc_html( $gstats['completed'] ); ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ( $g_not_count > 0 ) : ?>
+                                        <button type="button" class="saq-drilldown-toggle" onclick="document.getElementById('saq-dd-grp-nc-<?php echo esc_attr( $gslug ); ?>').classList.toggle('saq-drilldown--open')"><?php echo esc_html( $g_not_count ); ?></button>
+                                    <?php else : ?>
+                                        <?php echo esc_html( $g_not_count ); ?>
+                                    <?php endif; ?>
+                                </td>
                                 <td>
                                     <div class="saq-progress">
                                         <div class="saq-progress__bar">
@@ -333,19 +400,67 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                                     </div>
                                 </td>
                             </tr>
+                            <?php if ( ! empty( $group_completed[ $gname ] ) ) : ?>
+                            <tr class="saq-drilldown" id="saq-dd-grp-c-<?php echo esc_attr( $gslug ); ?>">
+                                <td colspan="5" style="padding: 0;">
+                                    <div class="saq-drilldown__inner">
+                                        <p class="saq-card__label">Completed — <?php echo esc_html( $gname ); ?> (<?php echo count( $group_completed[ $gname ] ); ?>)</p>
+                                        <table class="saq-table saq-table--nested">
+                                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th></tr></thead>
+                                            <tbody>
+                                            <?php foreach ( $group_completed[ $gname ] as $gu ) : ?>
+                                                <tr>
+                                                    <td><?php echo esc_html( $gu->first_name ); ?></td>
+                                                    <td><?php echo esc_html( $gu->last_name ); ?></td>
+                                                    <td><?php echo esc_html( $gu->user_email ); ?></td>
+                                                    <td><?php echo esc_html( $gu->company ?? '' ); ?></td>
+                                                    <td><?php echo esc_html( gmdate( 'd/m/Y', $completed_set[ $gu->ID ] ) ); ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endif; ?>
+                            <?php if ( ! empty( $group_not_completed[ $gname ] ) ) : ?>
+                            <tr class="saq-drilldown" id="saq-dd-grp-nc-<?php echo esc_attr( $gslug ); ?>">
+                                <td colspan="5" style="padding: 0;">
+                                    <div class="saq-drilldown__inner">
+                                        <p class="saq-card__label">Not Completed — <?php echo esc_html( $gname ); ?> (<?php echo count( $group_not_completed[ $gname ] ); ?>)</p>
+                                        <table class="saq-table saq-table--nested">
+                                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th></tr></thead>
+                                            <tbody>
+                                            <?php foreach ( $group_not_completed[ $gname ] as $gu ) : ?>
+                                                <tr>
+                                                    <td><?php echo esc_html( $gu->first_name ); ?></td>
+                                                    <td><?php echo esc_html( $gu->last_name ); ?></td>
+                                                    <td><?php echo esc_html( $gu->user_email ); ?></td>
+                                                    <td><?php echo esc_html( $gu->company ?? '' ); ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endif; ?>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
 
                 <?php
-                $export_url = add_query_arg( array(
-                    'cr_cat'     => $cat,
-                    'cr_period'  => $period,
-                    'cr_to'      => $to,
-                    'cr_company' => $company,
-                    'cr_export'  => '1',
-                ) );
+                $export_params = array(
+                    'cr_cat'    => $cat,
+                    'cr_period' => $period,
+                    'cr_to'     => $to,
+                    'cr_export' => '1',
+                );
+                if ( ! empty( $companies_selected ) ) {
+                    $export_params['cr_company'] = $companies_selected;
+                }
+                $export_url = '?' . http_build_query( $export_params );
                 ?>
                 <a href="<?php echo esc_url( $export_url ); ?>" class="saq-export">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -355,6 +470,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
 
         </div>
         <?php
+        self::render_multiselect_js();
         return ob_get_clean();
     }
 

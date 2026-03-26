@@ -118,6 +118,152 @@ abstract class ScaleAQ_Report_Base {
         }
     }
 
+    /**
+     * Sanitize company filter input (backward-compatible with string or array).
+     *
+     * @param mixed $raw  String (v1.2 compat) or array of company names.
+     * @return array Sanitized company names (empty = all companies).
+     */
+    public static function sanitize_companies( $raw ) {
+        if ( is_string( $raw ) ) {
+            $raw = $raw !== '' ? array( $raw ) : array();
+        }
+        if ( ! is_array( $raw ) ) {
+            return array();
+        }
+        $clean = array();
+        foreach ( $raw as $val ) {
+            $val = sanitize_text_field( $val );
+            if ( $val !== '' ) {
+                $clean[] = $val;
+            }
+        }
+        return array_unique( $clean );
+    }
+
+    /**
+     * Build SQL WHERE clause for multi-company filtering.
+     *
+     * @param array $companies Sanitized company names.
+     * @return string SQL fragment (empty string if no filter).
+     */
+    public static function build_company_where( $companies ) {
+        global $wpdb;
+        if ( empty( $companies ) ) {
+            return '';
+        }
+        $placeholders = implode( ',', array_fill( 0, count( $companies ), '%s' ) );
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        return $wpdb->prepare( "AND ms.meta_value IN ({$placeholders})", $companies );
+    }
+
+    /**
+     * Render a multi-select checkbox dropdown.
+     *
+     * @param string $name       Input name (e.g. 'cr_company').
+     * @param array  $options    Available company names.
+     * @param array  $selected   Currently selected company names.
+     */
+    public static function render_multiselect( $name, $options, $selected ) {
+        $count    = count( $selected );
+        $total    = count( $options );
+        $all      = $count === 0 || $count === $total;
+        $btn_text = 'All Companies';
+        if ( $count === 1 ) {
+            $btn_text = $selected[0];
+        } elseif ( $count > 1 && ! $all ) {
+            $btn_text = $count . ' companies selected';
+        }
+        ?>
+        <div class="saq-multiselect" data-saq-ms>
+            <button type="button" class="saq-multiselect__toggle" aria-expanded="false">
+                <span class="saq-multiselect__text"><?php echo esc_html( $btn_text ); ?></span>
+                <svg class="saq-multiselect__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="saq-multiselect__dropdown">
+                <label class="saq-multiselect__option saq-multiselect__option--all">
+                    <input type="checkbox" data-saq-all>
+                    <span>Select All</span>
+                </label>
+                <?php foreach ( $options as $c ) : ?>
+                <label class="saq-multiselect__option">
+                    <input type="checkbox" name="<?php echo esc_attr( $name ); ?>[]" value="<?php echo esc_attr( $c ); ?>"<?php echo in_array( $c, $selected, true ) ? ' checked' : ''; ?>>
+                    <span><?php echo esc_html( $c ); ?></span>
+                </label>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Render inline JS for multi-select dropdowns (once per page).
+     */
+    public static function render_multiselect_js() {
+        static $rendered = false;
+        if ( $rendered ) {
+            return;
+        }
+        $rendered = true;
+        ?>
+        <script>
+        (function(){
+            document.addEventListener('click',function(e){
+                document.querySelectorAll('.saq-multiselect').forEach(function(ms){
+                    if(!ms.contains(e.target)){
+                        ms.classList.remove('saq-multiselect--open');
+                        ms.querySelector('.saq-multiselect__toggle').setAttribute('aria-expanded','false');
+                    }
+                });
+            });
+            document.querySelectorAll('.saq-multiselect__toggle').forEach(function(btn){
+                btn.addEventListener('click',function(e){
+                    e.preventDefault();
+                    var ms=this.closest('.saq-multiselect');
+                    var open=ms.classList.toggle('saq-multiselect--open');
+                    this.setAttribute('aria-expanded',open?'true':'false');
+                });
+            });
+            document.querySelectorAll('[data-saq-all]').forEach(function(allCb){
+                allCb.addEventListener('change',function(){
+                    var dd=this.closest('.saq-multiselect__dropdown');
+                    dd.querySelectorAll('input[type=checkbox]:not([data-saq-all])').forEach(function(cb){
+                        cb.checked=allCb.checked;
+                    });
+                    updateLabel(this.closest('.saq-multiselect'));
+                });
+            });
+            document.querySelectorAll('.saq-multiselect__dropdown input[type=checkbox]:not([data-saq-all])').forEach(function(cb){
+                cb.addEventListener('change',function(){
+                    var ms=this.closest('.saq-multiselect');
+                    var dd=ms.querySelector('.saq-multiselect__dropdown');
+                    var boxes=dd.querySelectorAll('input[type=checkbox]:not([data-saq-all])');
+                    var allCb=dd.querySelector('[data-saq-all]');
+                    if(allCb){
+                        var allChecked=true;
+                        boxes.forEach(function(b){if(!b.checked)allChecked=false;});
+                        allCb.checked=allChecked;
+                    }
+                    updateLabel(ms);
+                });
+            });
+            function updateLabel(ms){
+                var checked=ms.querySelectorAll('.saq-multiselect__dropdown input[type=checkbox]:checked:not([data-saq-all])');
+                var total=ms.querySelectorAll('.saq-multiselect__dropdown input[type=checkbox]:not([data-saq-all])');
+                var txt=ms.querySelector('.saq-multiselect__text');
+                if(checked.length===0||checked.length===total.length){
+                    txt.textContent='All Companies';
+                }else if(checked.length===1){
+                    txt.textContent=checked[0].value;
+                }else{
+                    txt.textContent=checked.length+' companies selected';
+                }
+            }
+        })();
+        </script>
+        <?php
+    }
+
     public static function get_period_options() {
         return array(
             'all'    => 'All time',

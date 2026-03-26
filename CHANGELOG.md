@@ -5,6 +5,25 @@ All notable changes to the ScaleAQ Reporting plugin will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-26
+
+### Added
+
+- Multi-company select filter — choose multiple companies simultaneously with checkbox dropdown in both reports
+- "Select All" option in company filter to quickly select/deselect all companies
+- Clickable drill-down on Completed and Not Completed stat cards — click the number to reveal a user name list
+- Per-group drill-down in the Group Completion Rates table — click completed/not completed counts to see users in that group
+- "Not Completed" column added to group completion table for quick reference
+- Drill-down tables show: First Name, Last Name, Email, Company (and Completed Date for completed users)
+
+### Changed
+
+- Company filter changed from single-select dropdown to multi-select checkbox dropdown
+- Statistics aggregate correctly across multiple companies (sum of counts, not average of percentages)
+- URL parameter `cr_company` / `ur_company` now accepts arrays (`cr_company[]=X&cr_company[]=Y`)
+- Export URLs correctly encode multi-company selections
+- Backward compatible — old single-company URLs (`?cr_company=X`) still work
+
 ## [1.2.0] - 2026-03-09
 
 ### Changed

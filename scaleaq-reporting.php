@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ScaleAQ Reporting
  * Description: Reporting plugin for ScaleAQ Academy (LearnDash LMS) — course completion and user reports.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: MentorKit
  * Requires PHP: 8.0
  * License: Proprietary
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'SCALEAQ_REPORTING_URL', plugin_dir_url( __FILE__ ) );
-define( 'SCALEAQ_REPORTING_VER', '1.2.0' );
+define( 'SCALEAQ_REPORTING_VER', '1.3.0' );
 
 require_once __DIR__ . '/includes/class-report-base.php';
 require_once __DIR__ . '/includes/class-course-report.php';

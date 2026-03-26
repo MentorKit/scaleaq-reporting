@@ -14,7 +14,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
         $cat     = sanitize_text_field( $_GET['ur_cat'] ?? '' );
         $period  = sanitize_text_field( $_GET['ur_period'] ?? 'all' );
         $to      = self::sanitize_date( $_GET['ur_to'] ?? '' );
-        $company = sanitize_text_field( $_GET['ur_company'] ?? '' );
+        $companies_selected = self::sanitize_companies( $_GET['ur_company'] ?? array() );
         $export  = sanitize_text_field( $_GET['ur_export'] ?? '' );
 
         // Resolve period preset to cutoff date.
@@ -40,8 +40,8 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
         sort( $companies );
 
         // Filter users by company if selected.
-        if ( $company !== '' ) {
-            $extra_where = $wpdb->prepare( "AND ms.meta_value = %s", $company );
+        if ( ! empty( $companies_selected ) ) {
+            $extra_where = self::build_company_where( $companies_selected );
             $users       = $wpdb->get_results( self::get_base_user_query( $extra_where ) );
         } else {
             $users = $all_users;
@@ -82,7 +82,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
         }
 
         $cat_display     = ( $cat !== '' && isset( $category_labels[ $cat ] ) ) ? $category_labels[ $cat ] : 'All Courses';
-        $company_display = $company !== '' ? $company : 'All';
+        $company_display = ! empty( $companies_selected ) ? implode( ', ', $companies_selected ) : 'All';
 
         // Render output.
         ob_start();
@@ -105,7 +105,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
             </div>
 
             <!-- Filters -->
-            <form method="get" class="saq-card" style="animation-delay: 0s;">
+            <form method="get" class="saq-card" style="animation-delay: 0s; position: relative; z-index: 10;">
                 <div class="saq-filters">
                     <div class="saq-filters__group saq-filters__group--grow">
                         <span class="saq-filters__label">Category</span>
@@ -121,14 +121,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
 
                     <div class="saq-filters__group saq-filters__group--grow">
                         <span class="saq-filters__label">Company</span>
-                        <select name="ur_company" id="ur_company">
-                            <option value="">All Companies</option>
-                            <?php foreach ( $companies as $c ) : ?>
-                                <option value="<?php echo esc_attr( $c ); ?>" <?php selected( $company, $c ); ?>>
-                                    <?php echo esc_html( $c ); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <?php self::render_multiselect( 'ur_company', $companies, $companies_selected ); ?>
                     </div>
 
                     <div class="saq-filters__group">
@@ -175,13 +168,16 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                     </div>
 
                     <?php
-                    $csv_url = add_query_arg( array(
-                        'ur_cat'     => $cat,
-                        'ur_period'  => $period,
-                        'ur_to'      => $to,
-                        'ur_company' => $company,
-                        'ur_export'  => '1',
-                    ) );
+                    $csv_params = array(
+                        'ur_cat'    => $cat,
+                        'ur_period' => $period,
+                        'ur_to'     => $to,
+                        'ur_export' => '1',
+                    );
+                    if ( ! empty( $companies_selected ) ) {
+                        $csv_params['ur_company'] = $companies_selected;
+                    }
+                    $csv_url = '?' . http_build_query( $csv_params );
                     ?>
                     <a href="<?php echo esc_url( $csv_url ); ?>" class="saq-export">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -235,6 +231,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
 
         </div>
         <?php
+        self::render_multiselect_js();
         return ob_get_clean();
     }
 

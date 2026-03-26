@@ -17,8 +17,10 @@ WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and u
 
 ### Filters (query parameters)
 
-**Course report:** `cr_cat`, `cr_period`, `cr_to`, `cr_company`, `cr_export`
-**User report:** `ur_cat`, `ur_period`, `ur_to`, `ur_company`, `ur_export`
+**Course report:** `cr_cat`, `cr_period`, `cr_to`, `cr_company[]`, `cr_export`
+**User report:** `ur_cat`, `ur_period`, `ur_to`, `ur_company[]`, `ur_export`
+
+The company filter accepts multiple values: `?cr_company[]=ScaleAQ+AS&cr_company[]=Moen+Marin+AS`. Single-value strings (`?cr_company=ScaleAQ+AS`) are also supported for backward compatibility.
 
 ## Course categories
 

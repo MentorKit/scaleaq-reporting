@@ -3,6 +3,7 @@
     "description": "Reporting plugin for ScaleAQ Academy (LearnDash LMS)",
     "type": "wordpress-plugin",
     "license": "proprietary",
+    "version": "1.3.0",
     "require": {
         "php": ">=8.0"
     }
