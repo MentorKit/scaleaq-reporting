@@ -208,45 +208,6 @@ abstract class ScaleAQ_Report_Base {
         ?>
         <script>
         (function(){
-            document.addEventListener('click',function(e){
-                document.querySelectorAll('.saq-multiselect').forEach(function(ms){
-                    if(!ms.contains(e.target)){
-                        ms.classList.remove('saq-multiselect--open');
-                        ms.querySelector('.saq-multiselect__toggle').setAttribute('aria-expanded','false');
-                    }
-                });
-            });
-            document.querySelectorAll('.saq-multiselect__toggle').forEach(function(btn){
-                btn.addEventListener('click',function(e){
-                    e.preventDefault();
-                    var ms=this.closest('.saq-multiselect');
-                    var open=ms.classList.toggle('saq-multiselect--open');
-                    this.setAttribute('aria-expanded',open?'true':'false');
-                });
-            });
-            document.querySelectorAll('[data-saq-all]').forEach(function(allCb){
-                allCb.addEventListener('change',function(){
-                    var dd=this.closest('.saq-multiselect__dropdown');
-                    dd.querySelectorAll('input[type=checkbox]:not([data-saq-all])').forEach(function(cb){
-                        cb.checked=allCb.checked;
-                    });
-                    updateLabel(this.closest('.saq-multiselect'));
-                });
-            });
-            document.querySelectorAll('.saq-multiselect__dropdown input[type=checkbox]:not([data-saq-all])').forEach(function(cb){
-                cb.addEventListener('change',function(){
-                    var ms=this.closest('.saq-multiselect');
-                    var dd=ms.querySelector('.saq-multiselect__dropdown');
-                    var boxes=dd.querySelectorAll('input[type=checkbox]:not([data-saq-all])');
-                    var allCb=dd.querySelector('[data-saq-all]');
-                    if(allCb){
-                        var allChecked=true;
-                        boxes.forEach(function(b){if(!b.checked)allChecked=false;});
-                        allCb.checked=allChecked;
-                    }
-                    updateLabel(ms);
-                });
-            });
             function updateLabel(ms){
                 var checked=ms.querySelectorAll('.saq-multiselect__dropdown input[type=checkbox]:checked:not([data-saq-all])');
                 var total=ms.querySelectorAll('.saq-multiselect__dropdown input[type=checkbox]:not([data-saq-all])');
@@ -259,6 +220,52 @@ abstract class ScaleAQ_Report_Base {
                     txt.textContent=checked.length+' companies selected';
                 }
             }
+            /* Event delegation — works for all dropdowns regardless of render order. */
+            document.addEventListener('click',function(e){
+                var toggle=e.target.closest('.saq-multiselect__toggle');
+                if(toggle){
+                    e.preventDefault();
+                    var ms=toggle.closest('.saq-multiselect');
+                    var open=ms.classList.toggle('saq-multiselect--open');
+                    toggle.setAttribute('aria-expanded',open?'true':'false');
+                    /* Close other open dropdowns */
+                    document.querySelectorAll('.saq-multiselect--open').forEach(function(other){
+                        if(other!==ms){
+                            other.classList.remove('saq-multiselect--open');
+                            other.querySelector('.saq-multiselect__toggle').setAttribute('aria-expanded','false');
+                        }
+                    });
+                    return;
+                }
+                /* Close all if click outside */
+                if(!e.target.closest('.saq-multiselect')){
+                    document.querySelectorAll('.saq-multiselect--open').forEach(function(ms){
+                        ms.classList.remove('saq-multiselect--open');
+                        ms.querySelector('.saq-multiselect__toggle').setAttribute('aria-expanded','false');
+                    });
+                }
+            });
+            document.addEventListener('change',function(e){
+                var cb=e.target;
+                if(!cb.closest('.saq-multiselect__dropdown'))return;
+                var ms=cb.closest('.saq-multiselect');
+                if(cb.hasAttribute('data-saq-all')){
+                    var dd=cb.closest('.saq-multiselect__dropdown');
+                    dd.querySelectorAll('input[type=checkbox]:not([data-saq-all])').forEach(function(box){
+                        box.checked=cb.checked;
+                    });
+                }else{
+                    var dd=ms.querySelector('.saq-multiselect__dropdown');
+                    var boxes=dd.querySelectorAll('input[type=checkbox]:not([data-saq-all])');
+                    var allCb=dd.querySelector('[data-saq-all]');
+                    if(allCb){
+                        var allChecked=true;
+                        boxes.forEach(function(b){if(!b.checked)allChecked=false;});
+                        allCb.checked=allChecked;
+                    }
+                }
+                updateLabel(ms);
+            });
         })();
         </script>
         <?php
