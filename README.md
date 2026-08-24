@@ -28,7 +28,7 @@ The company filter accepts multiple values: `?cr_company[]=ScaleAQ+AS&cr_company
 |---|---|---|
 | `hse` | HSE | 46681, 47052, 47386 |
 | `coc` | CoC | 47232, 46085, 47053 |
-| `it` | IT | 50346, 50348 |
+| `it` | IT | 50346, 50348, 55110 |
 
 ## Domain filtering
 

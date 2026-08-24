@@ -38,7 +38,7 @@ abstract class ScaleAQ_Report_Base {
         return array(
             'hse' => array( 46681, 47052, 47386 ),
             'coc' => array( 47232, 46085, 47053 ),
-            'it'  => array( 50346, 50348 ),
+            'it'  => array( 50346, 50348, 55110 ),
         );
     }
 
