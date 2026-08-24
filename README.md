@@ -4,6 +4,10 @@ WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and u
 
 **Current version:** 1.4.0
 
+## Contributors
+
+- [Martin Morfjord](https://github.com/morfjord) ([@morfjord](https://github.com/morfjord)) — `morfjord@gmail.com`
+
 ## Requirements
 
 - WordPress 6.0+
