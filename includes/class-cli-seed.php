@@ -19,6 +19,7 @@ class ScaleAQ_CLI_Seed {
             47053 => 'CoC Ethical Guidelines',
             50346 => 'IT Security Awareness',
             50348 => 'IT Systems Training',
+            55110 => 'Grunnkurs AI og Copilot',
         );
     }
 

@@ -26,6 +26,12 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
         $category_labels = self::get_category_labels();
         $ts_col          = self::detect_timestamp_column();
 
+        $category_course_ids = ( $cat !== '' && isset( $course_map[ $cat ] ) )
+            ? array_map( 'intval', $course_map[ $cat ] )
+            : array();
+        $course_id     = self::sanitize_course_id( $_GET['ur_course'] ?? 0, $category_course_ids );
+        $course_titles = self::get_course_titles( $category_course_ids );
+
         // Build company dropdown options.
         $company_sql  = self::get_base_user_query();
         $all_users    = $wpdb->get_results( $company_sql );
@@ -50,7 +56,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
         // Check completion if a category is selected.
         $completed_set = array();
         if ( $cat !== '' && isset( $course_map[ $cat ] ) ) {
-            $course_ids   = $course_map[ $cat ];
+            $course_ids   = self::resolve_course_ids( $cat, $course_id );
             $placeholders = implode( ',', array_fill( 0, count( $course_ids ), '%d' ) );
 
             $activity_sql = "SELECT user_id, MAX(`{$ts_col}`) as completed_ts
@@ -81,7 +87,10 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
             return '';
         }
 
-        $cat_display     = ( $cat !== '' && isset( $category_labels[ $cat ] ) ) ? $category_labels[ $cat ] : 'All Courses';
+        $cat_display = ( $cat !== '' && isset( $category_labels[ $cat ] ) ) ? $category_labels[ $cat ] : 'All Courses';
+        if ( $course_id > 0 ) {
+            $cat_display .= ' — ' . ( $course_titles[ $course_id ] ?? ( 'Course #' . $course_id ) );
+        }
         $company_display = ! empty( $companies_selected ) ? implode( ', ', $companies_selected ) : 'All';
 
         // Render output.
@@ -109,13 +118,29 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                 <div class="saq-filters">
                     <div class="saq-filters__group saq-filters__group--grow">
                         <span class="saq-filters__label">Category</span>
-                        <select name="ur_cat" id="ur_cat">
+                        <select name="ur_cat" id="ur_cat" onchange="var c=document.getElementById('ur_course'); if(c){c.value='';} this.form.submit();">
                             <option value="">All Courses</option>
                             <?php foreach ( $category_labels as $key => $label ) : ?>
                                 <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $cat, $key ); ?>>
                                     <?php echo esc_html( $label ); ?>
                                 </option>
                             <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="saq-filters__group saq-filters__group--grow">
+                        <span class="saq-filters__label">Course</span>
+                        <select name="ur_course" id="ur_course" <?php disabled( $cat === '' || empty( $course_titles ) ); ?>>
+                            <?php if ( $cat === '' || empty( $course_titles ) ) : ?>
+                                <option value="">Select a category first</option>
+                            <?php else : ?>
+                                <option value="">All courses in category</option>
+                                <?php foreach ( $course_titles as $cid => $ctitle ) : ?>
+                                    <option value="<?php echo esc_attr( $cid ); ?>" <?php selected( $course_id, (int) $cid ); ?>>
+                                        <?php echo esc_html( $ctitle ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </select>
                     </div>
 
@@ -170,6 +195,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                     <?php
                     $csv_params = array(
                         'ur_cat'    => $cat,
+                        'ur_course' => $course_id > 0 ? $course_id : '',
                         'ur_period' => $period,
                         'ur_to'     => $to,
                         'ur_export' => '1',

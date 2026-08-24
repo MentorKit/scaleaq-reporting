@@ -38,7 +38,7 @@ abstract class ScaleAQ_Report_Base {
         return array(
             'hse' => array( 46681, 47052, 47386 ),
             'coc' => array( 47232, 46085, 47053 ),
-            'it'  => array( 50346, 50348 ),
+            'it'  => array( 50346, 50348, 55110 ),
         );
     }
 
@@ -48,6 +48,56 @@ abstract class ScaleAQ_Report_Base {
             'coc' => 'CoC',
             'it'  => 'IT',
         );
+    }
+
+    /**
+     * Sanitize a course ID against the allowed IDs for a category.
+     *
+     * @param mixed $raw         Raw GET value.
+     * @param array $allowed_ids Course IDs belonging to the category.
+     * @return int Course ID, or 0 for "all courses in category".
+     */
+    public static function sanitize_course_id( $raw, $allowed_ids ) {
+        $id = absint( $raw );
+        if ( $id > 0 && in_array( $id, array_map( 'intval', $allowed_ids ), true ) ) {
+            return $id;
+        }
+        return 0;
+    }
+
+    /**
+     * Resolve which course IDs to query for a category (+ optional single course).
+     *
+     * @param string $cat       Category key.
+     * @param int    $course_id Specific course ID (0 = all in category).
+     * @return array List of course post IDs.
+     */
+    public static function resolve_course_ids( $cat, $course_id = 0 ) {
+        $map = self::get_course_ids_map();
+        $ids = isset( $map[ $cat ] ) ? array_map( 'intval', $map[ $cat ] ) : array();
+        if ( empty( $ids ) ) {
+            return array();
+        }
+        if ( $course_id > 0 && in_array( $course_id, $ids, true ) ) {
+            return array( $course_id );
+        }
+        return $ids;
+    }
+
+    /**
+     * Fetch display titles for course IDs (LearnDash posts).
+     *
+     * @param array $course_ids Course post IDs.
+     * @return array Map of course_id => title.
+     */
+    public static function get_course_titles( $course_ids ) {
+        $titles = array();
+        foreach ( $course_ids as $id ) {
+            $id    = (int) $id;
+            $title = get_the_title( $id );
+            $titles[ $id ] = ( $title !== '' ) ? $title : ( 'Course #' . $id );
+        }
+        return $titles;
     }
 
     public static function get_group_label( $company_name ) {
