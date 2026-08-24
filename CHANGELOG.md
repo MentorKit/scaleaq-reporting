@@ -5,6 +5,19 @@ All notable changes to the ScaleAQ Reporting plugin will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-24
+
+### Added
+
+- Course filter dropdown on Course Completion and User Report — pick a single course within the selected category (`cr_course` / `ur_course`)
+- Default remains "All courses in category" so existing URLs and behaviour stay unchanged
+
+## [1.3.1] - 2026-08-24
+
+### Changed
+
+- Added course ID `55110` (*Grunnkurs AI og Copilot*) to the IT category (`cr_cat=it` / `ur_cat=it`)
+
 ## [1.3.0] - 2026-03-26
 
 ### Added

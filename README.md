@@ -2,6 +2,8 @@
 
 WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and user reports.
 
+**Current version:** 1.4.0
+
 ## Requirements
 
 - WordPress 6.0+
@@ -15,12 +17,42 @@ WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and u
 | `[scaleaq_course_report]` | Course completion report with charts, filters, and CSV export |
 | `[scaleaq_user_report]` | User list with per-user completion status and CSV export |
 
+### Filters (UI)
+
+Both reports share the same filter bar layout:
+
+| Filter | Purpose |
+|---|---|
+| **Category** | Course group: HSE, CoC, or IT (User Report also allows “All Courses”) |
+| **Course** | Optional single course within the selected category. Default: all courses in that category |
+| **Company** | Multi-select company filter |
+| **Time Period** | All time, cutoff presets, or custom cutoff date |
+
+Changing **Category** clears the course selection and refreshes the course list (titles come from LearnDash course posts).
+
+On **User Report**, the Course dropdown is disabled until a category is selected.
+
 ### Filters (query parameters)
 
-**Course report:** `cr_cat`, `cr_period`, `cr_to`, `cr_company[]`, `cr_export`
-**User report:** `ur_cat`, `ur_period`, `ur_to`, `ur_company[]`, `ur_export`
+**Course report:** `cr_cat`, `cr_course`, `cr_period`, `cr_to`, `cr_company[]`, `cr_export`  
+**User report:** `ur_cat`, `ur_course`, `ur_period`, `ur_to`, `ur_company[]`, `ur_export`
+
+| Parameter | Description |
+|---|---|
+| `cr_cat` / `ur_cat` | Category key (`hse`, `coc`, `it`). User report: empty = all courses / no completion column |
+| `cr_course` / `ur_course` | LearnDash course post ID belonging to the selected category. Empty (default) = all courses in that category |
+| `cr_period` / `ur_period` | `all`, `2025`, `2024`, or `custom` |
+| `cr_to` / `ur_to` | Cutoff date `YYYY-MM-DD` (used when period is `custom`) |
+| `cr_company[]` / `ur_company[]` | One or more company names |
+| `cr_export` / `ur_export` | Set to `1` to download CSV with the current filters |
 
 The company filter accepts multiple values: `?cr_company[]=ScaleAQ+AS&cr_company[]=Moen+Marin+AS`. Single-value strings (`?cr_company=ScaleAQ+AS`) are also supported for backward compatibility.
+
+Example — IT category, single course:
+
+```
+?cr_cat=it&cr_course=55110
+```
 
 ## Course categories
 
@@ -28,7 +60,9 @@ The company filter accepts multiple values: `?cr_company[]=ScaleAQ+AS&cr_company
 |---|---|---|
 | `hse` | HSE | 46681, 47052, 47386 |
 | `coc` | CoC | 47232, 46085, 47053 |
-| `it` | IT | 50346, 50348 |
+| `it` | IT | 50346, 50348, 55110 |
+
+Categories and course IDs are defined in `includes/class-report-base.php` (`get_course_ids_map()` / `get_category_labels()`).
 
 ## Domain filtering
 
@@ -66,7 +100,8 @@ scaleaq-reporting/
 │   ├── class-user-report.php    # User report
 │   └── class-cli-seed.php       # WP-CLI seed command
 ├── assets/
-│   └── css/reports.css          # Report styles
+│   ├── css/reports.css          # Report styles
+│   └── js/reports.js            # Multiselect + drill-down UI
 ├── CHANGELOG.md
 └── composer.json
 ```

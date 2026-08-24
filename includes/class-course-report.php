@@ -29,8 +29,16 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             $cat = 'hse';
         }
 
-        $course_ids = $course_map[ $cat ];
-        $ts_col     = self::detect_timestamp_column();
+        $category_course_ids = array_map( 'intval', $course_map[ $cat ] );
+        $course_id           = self::sanitize_course_id( $_GET['cr_course'] ?? 0, $category_course_ids );
+        $course_ids          = self::resolve_course_ids( $cat, $course_id );
+        $course_titles       = self::get_course_titles( $category_course_ids );
+        $ts_col              = self::detect_timestamp_column();
+
+        $report_title = $category_labels[ $cat ];
+        if ( $course_id > 0 ) {
+            $report_title .= ' — ' . ( $course_titles[ $course_id ] ?? ( 'Course #' . $course_id ) );
+        }
 
         // Build company dropdown options.
         $company_sql = self::get_base_user_query();
@@ -148,7 +156,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/></svg>
                 </div>
                 <div>
-                    <h2 class="saq-header__title">Course Completion: <?php echo esc_html( $category_labels[ $cat ] ); ?></h2>
+                    <h2 class="saq-header__title">Course Completion: <?php echo esc_html( $report_title ); ?></h2>
                     <?php if ( $period === 'all' ) : ?>
                         <p class="saq-header__subtitle">Showing all completions recorded, regardless of date</p>
                     <?php else : ?>
@@ -162,10 +170,22 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 <div class="saq-filters">
                     <div class="saq-filters__group saq-filters__group--grow">
                         <span class="saq-filters__label">Category</span>
-                        <select name="cr_cat" id="cr_cat">
+                        <select name="cr_cat" id="cr_cat" onchange="document.getElementById('cr_course').value=''; this.form.submit();">
                             <?php foreach ( $category_labels as $key => $label ) : ?>
                                 <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $cat, $key ); ?>>
                                     <?php echo esc_html( $label ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="saq-filters__group saq-filters__group--grow">
+                        <span class="saq-filters__label">Course</span>
+                        <select name="cr_course" id="cr_course">
+                            <option value="">All courses in category</option>
+                            <?php foreach ( $course_titles as $cid => $ctitle ) : ?>
+                                <option value="<?php echo esc_attr( $cid ); ?>" <?php selected( $course_id, (int) $cid ); ?>>
+                                    <?php echo esc_html( $ctitle ); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -535,6 +555,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 <?php
                 $export_params = array(
                     'cr_cat'    => $cat,
+                    'cr_course' => $course_id > 0 ? $course_id : '',
                     'cr_period' => $period,
                     'cr_to'     => $to,
                     'cr_export' => '1',
