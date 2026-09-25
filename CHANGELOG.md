@@ -5,6 +5,21 @@ All notable changes to the ScaleAQ Reporting plugin will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-25
+
+### Added
+
+- Polylang-aware course grouping: each category uses one canonical (Norwegian) course ID; completions count across all published language variants of that course
+- New **AI** category (`cr_cat=ai` / `ur_cat=ai`) for course *Grunnkurs AI og Copilot* (55110), removed from IT
+- **Language** column in drill-down tables, User Report (when a category is selected), and both CSV exports — shows the language of the user’s latest completion (NO/EN/ES)
+- `get_course_language_ids()` and hardcoded translation fallbacks (including IT Spanish 52985) when Polylang is unavailable
+
+### Changed
+
+- Course filter dropdown shows one entry per logical course (Norwegian title), not per language version
+- Category course maps: HSE `[47052]`, CoC `[47053]`, IT `[50348]`, AI `[55110]`
+- Legacy `cr_course` / `ur_course` URLs with an old language-specific post ID (e.g. `46681`) still resolve to the correct course
+
 ## [1.4.0] - 2026-08-24
 
 ### Added

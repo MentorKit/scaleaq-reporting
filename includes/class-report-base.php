@@ -6,6 +6,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 abstract class ScaleAQ_Report_Base {
 
+    /** @var array<int, array<int>> Request cache for get_course_language_ids(). */
+    private static $course_language_ids_cache = array();
+
     public static function get_default_to() {
         return '';
     }
@@ -36,9 +39,10 @@ abstract class ScaleAQ_Report_Base {
 
     public static function get_course_ids_map() {
         return array(
-            'hse' => array( 46681, 47052, 47386 ),
-            'coc' => array( 47232, 46085, 47053 ),
-            'it'  => array( 50346, 50348, 55110 ),
+            'hse' => array( 47052 ),
+            'coc' => array( 47053 ),
+            'it'  => array( 50348 ),
+            'ai'  => array( 55110 ),
         );
     }
 
@@ -47,7 +51,74 @@ abstract class ScaleAQ_Report_Base {
             'hse' => 'HSE',
             'coc' => 'CoC',
             'it'  => 'IT',
+            'ai'  => 'AI',
         );
+    }
+
+    /**
+     * Hardcoded Polylang translation groups (canonical course ID => all language post IDs).
+     *
+     * @return array<int, array<int>>
+     */
+    public static function get_course_translation_fallbacks() {
+        return array(
+            47052 => array( 46681, 47052, 47386 ),
+            47053 => array( 46085, 47053, 47232 ),
+            50348 => array( 50346, 50348, 52985 ),
+            55110 => array( 55110 ),
+        );
+    }
+
+    /**
+     * All LearnDash course post IDs for a canonical course (Polylang + fallbacks).
+     *
+     * @param int $course_id Canonical course post ID.
+     * @return array<int>
+     */
+    public static function get_course_language_ids( $course_id ) {
+        $course_id = (int) $course_id;
+        if ( $course_id <= 0 ) {
+            return array();
+        }
+
+        if ( isset( self::$course_language_ids_cache[ $course_id ] ) ) {
+            return self::$course_language_ids_cache[ $course_id ];
+        }
+
+        $ids = array();
+
+        if ( function_exists( 'pll_get_post_translations' ) ) {
+            $translations = pll_get_post_translations( $course_id );
+            if ( is_array( $translations ) ) {
+                foreach ( $translations as $post_id ) {
+                    $post_id = (int) $post_id;
+                    if ( $post_id <= 0 ) {
+                        continue;
+                    }
+                    if ( get_post_type( $post_id ) !== 'sfwd-courses' ) {
+                        continue;
+                    }
+                    if ( get_post_status( $post_id ) !== 'publish' ) {
+                        continue;
+                    }
+                    $ids[] = $post_id;
+                }
+            }
+        }
+
+        $fallbacks = self::get_course_translation_fallbacks();
+        if ( isset( $fallbacks[ $course_id ] ) ) {
+            $ids = array_merge( $ids, $fallbacks[ $course_id ] );
+        }
+
+        if ( empty( $ids ) ) {
+            $ids = array( $course_id );
+        }
+
+        $ids = array_values( array_unique( array_map( 'intval', $ids ) ) );
+        self::$course_language_ids_cache[ $course_id ] = $ids;
+
+        return $ids;
     }
 
     /**
@@ -59,9 +130,23 @@ abstract class ScaleAQ_Report_Base {
      */
     public static function sanitize_course_id( $raw, $allowed_ids ) {
         $id = absint( $raw );
-        if ( $id > 0 && in_array( $id, array_map( 'intval', $allowed_ids ), true ) ) {
+        if ( $id <= 0 ) {
+            return 0;
+        }
+
+        $allowed_ids = array_map( 'intval', $allowed_ids );
+        if ( in_array( $id, $allowed_ids, true ) ) {
             return $id;
         }
+
+        // Backward compatibility: accept legacy language-specific course IDs in URLs.
+        foreach ( $allowed_ids as $canonical ) {
+            $lang_ids = self::get_course_language_ids( $canonical );
+            if ( in_array( $id, $lang_ids, true ) ) {
+                return $canonical;
+            }
+        }
+
         return 0;
     }
 
@@ -73,15 +158,111 @@ abstract class ScaleAQ_Report_Base {
      * @return array List of course post IDs.
      */
     public static function resolve_course_ids( $cat, $course_id = 0 ) {
-        $map = self::get_course_ids_map();
-        $ids = isset( $map[ $cat ] ) ? array_map( 'intval', $map[ $cat ] ) : array();
-        if ( empty( $ids ) ) {
+        $map       = self::get_course_ids_map();
+        $canonical = isset( $map[ $cat ] ) ? array_map( 'intval', $map[ $cat ] ) : array();
+        if ( empty( $canonical ) ) {
             return array();
         }
-        if ( $course_id > 0 && in_array( $course_id, $ids, true ) ) {
-            return array( $course_id );
+
+        if ( $course_id > 0 ) {
+            $course_id = self::sanitize_course_id( $course_id, $canonical );
+            if ( $course_id <= 0 ) {
+                return array();
+            }
+            $canonical = array( $course_id );
         }
-        return $ids;
+
+        $all_ids = array();
+        foreach ( $canonical as $cid ) {
+            $all_ids = array_merge( $all_ids, self::get_course_language_ids( $cid ) );
+        }
+
+        return array_values( array_unique( array_map( 'intval', $all_ids ) ) );
+    }
+
+    /**
+     * Format Polylang language slug for display (NO / EN / ES).
+     *
+     * @param int $post_id LearnDash course post ID used for completion.
+     * @return string Uppercase language code, or empty string.
+     */
+    public static function format_completion_language( $post_id ) {
+        $post_id = (int) $post_id;
+        if ( $post_id <= 0 ) {
+            return '';
+        }
+
+        if ( function_exists( 'pll_get_post_language' ) ) {
+            $slug = pll_get_post_language( $post_id, 'slug' );
+            if ( is_string( $slug ) && $slug !== '' ) {
+                return strtoupper( $slug );
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Fetch latest course completion per user (timestamp + post_id for language).
+     *
+     * @param array  $course_ids LearnDash course post IDs (all language variants).
+     * @param string $to         Cutoff date YYYY-MM-DD, or empty for all time.
+     * @return array<int, array{ts: int, post_id: int, lang: string}> user_id => completion data.
+     */
+    public static function fetch_user_completions( $course_ids, $to = '' ) {
+        global $wpdb;
+
+        $course_ids = array_values( array_unique( array_map( 'intval', $course_ids ) ) );
+        if ( empty( $course_ids ) ) {
+            return array();
+        }
+
+        $ts_col       = self::detect_timestamp_column();
+        $placeholders = implode( ',', array_fill( 0, count( $course_ids ), '%d' ) );
+
+        $inner_sql = "SELECT user_id, MAX(`{$ts_col}`) AS max_ts
+            FROM {$wpdb->prefix}learndash_user_activity
+            WHERE activity_type = 'course'
+                AND activity_status = 1
+                AND post_id IN ({$placeholders})";
+
+        $prepare_args = $course_ids;
+
+        if ( $to !== '' ) {
+            $to_ts        = strtotime( $to . ' 23:59:59' );
+            $inner_sql   .= $wpdb->prepare( " AND `{$ts_col}` <= %d", $to_ts );
+        }
+
+        $inner_sql .= ' GROUP BY user_id';
+
+        $activity_sql = "SELECT a.user_id, a.post_id, a.`{$ts_col}` AS completed_ts
+            FROM {$wpdb->prefix}learndash_user_activity a
+            INNER JOIN ({$inner_sql}) m
+                ON a.user_id = m.user_id AND a.`{$ts_col}` = m.max_ts
+            WHERE a.activity_type = 'course'
+                AND a.activity_status = 1
+                AND a.post_id IN ({$placeholders})";
+
+        $prepare_args = array_merge( $prepare_args, $course_ids );
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        $rows = $wpdb->get_results( $wpdb->prepare( $activity_sql, $prepare_args ) );
+
+        $completed_set = array();
+        foreach ( $rows as $row ) {
+            $uid = (int) $row->user_id;
+            if ( isset( $completed_set[ $uid ] ) ) {
+                continue;
+            }
+            $post_id = (int) $row->post_id;
+            $completed_set[ $uid ] = array(
+                'ts'      => (int) $row->completed_ts,
+                'post_id' => $post_id,
+                'lang'    => self::format_completion_language( $post_id ),
+            );
+        }
+
+        return $completed_set;
     }
 
     /**

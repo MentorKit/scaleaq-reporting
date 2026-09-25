@@ -33,7 +33,6 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
         $course_id           = self::sanitize_course_id( $_GET['cr_course'] ?? 0, $category_course_ids );
         $course_ids          = self::resolve_course_ids( $cat, $course_id );
         $course_titles       = self::get_course_titles( $category_course_ids );
-        $ts_col              = self::detect_timestamp_column();
 
         $report_title = $category_labels[ $cat ];
         if ( $course_id > 0 ) {
@@ -61,29 +60,8 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             $users = $all_users;
         }
 
-        // Build completion lookup.
-        $placeholders = implode( ',', array_fill( 0, count( $course_ids ), '%d' ) );
-        $activity_sql = "SELECT user_id, MAX(`{$ts_col}`) as completed_ts
-            FROM {$wpdb->prefix}learndash_user_activity
-            WHERE activity_type = 'course'
-                AND activity_status = 1
-                AND post_id IN ({$placeholders})";
-
-        $prepare_args = $course_ids;
-
-        if ( $to !== '' ) {
-            $to_ts        = strtotime( $to . ' 23:59:59' );
-            $activity_sql .= $wpdb->prepare( " AND `{$ts_col}` <= %d", $to_ts );
-        }
-
-        $activity_sql .= " GROUP BY user_id";
-
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-        $completed_rows = $wpdb->get_results( $wpdb->prepare( $activity_sql, $prepare_args ) );
-        $completed_set  = array();
-        foreach ( $completed_rows as $row ) {
-            $completed_set[ $row->user_id ] = (int) $row->completed_ts;
-        }
+        // Build completion lookup (one row per user; includes language of latest completion).
+        $completed_set = self::fetch_user_completions( $course_ids, $to );
 
         // Tally stats + build drill-down user lists.
         $total              = count( $users );
@@ -250,7 +228,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     <p class="saq-card__label">All Users (<?php echo esc_html( $total ); ?>)</p>
                     <div class="saq-table-wrap">
                         <table class="saq-table">
-                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Status</th></tr></thead>
+                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Status</th><th>Language</th></tr></thead>
                             <tbody>
                             <?php foreach ( $users as $u ) :
                                 $u_done = isset( $completed_set[ $u->ID ] );
@@ -267,6 +245,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                                             <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> Not completed</span>
                                         <?php endif; ?>
                                     </td>
+                                    <td><?php echo $u_done ? esc_html( $completed_set[ $u->ID ]['lang'] ?: '—' ) : '&mdash;'; ?></td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody>
@@ -281,7 +260,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     <p class="saq-card__label">Completed Users (<?php echo esc_html( count( $completed_users ) ); ?>)</p>
                     <div class="saq-table-wrap">
                         <table class="saq-table">
-                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th></tr></thead>
+                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th><th>Language</th></tr></thead>
                             <tbody>
                             <?php foreach ( $completed_users as $u ) : ?>
                                 <tr>
@@ -289,7 +268,8 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                                     <td><?php echo esc_html( $u->last_name ); ?></td>
                                     <td><?php echo esc_html( $u->user_email ); ?></td>
                                     <td><?php echo esc_html( $u->company ?? '' ); ?></td>
-                                    <td><?php echo esc_html( gmdate( 'd/m/Y', $completed_set[ $u->ID ] ) ); ?></td>
+                                    <td><?php echo esc_html( gmdate( 'd/m/Y', $completed_set[ $u->ID ]['ts'] ) ); ?></td>
+                                    <td><?php echo esc_html( $completed_set[ $u->ID ]['lang'] ?: '—' ); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody>
@@ -508,7 +488,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                                     <div class="saq-drilldown__inner">
                                         <p class="saq-card__label">Completed — <?php echo esc_html( $gname ); ?> (<?php echo esc_html( count( $group_completed[ $gname ] ) ); ?>)</p>
                                         <table class="saq-table saq-table--nested">
-                                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th></tr></thead>
+                                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th><th>Language</th></tr></thead>
                                             <tbody>
                                             <?php foreach ( $group_completed[ $gname ] as $gu ) : ?>
                                                 <tr>
@@ -516,7 +496,8 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                                                     <td><?php echo esc_html( $gu->last_name ); ?></td>
                                                     <td><?php echo esc_html( $gu->user_email ); ?></td>
                                                     <td><?php echo esc_html( $gu->company ?? '' ); ?></td>
-                                                    <td><?php echo esc_html( gmdate( 'd/m/Y', $completed_set[ $gu->ID ] ) ); ?></td>
+                                                    <td><?php echo esc_html( gmdate( 'd/m/Y', $completed_set[ $gu->ID ]['ts'] ) ); ?></td>
+                                                    <td><?php echo esc_html( $completed_set[ $gu->ID ]['lang'] ?: '—' ); ?></td>
                                                 </tr>
                                             <?php endforeach; ?>
                                             </tbody>
@@ -582,10 +563,11 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
         header( 'Content-Disposition: attachment; filename="course-report-' . esc_attr( $cat ) . '.csv"' );
 
         $output = fopen( 'php://output', 'w' );
-        fputcsv( $output, array( 'ID', 'Email', 'First Name', 'Last Name', 'Company', 'Category', 'Completed', 'Completed Date' ) );
+        fputcsv( $output, array( 'ID', 'Email', 'First Name', 'Last Name', 'Company', 'Category', 'Completed', 'Completed Date', 'Language' ) );
 
         foreach ( $users as $u ) {
-            $ts = $completed_set[ $u->ID ] ?? null;
+            $completion = $completed_set[ $u->ID ] ?? null;
+            $ts         = $completion['ts'] ?? null;
             fputcsv( $output, array(
                 $u->ID,
                 $u->user_email,
@@ -595,6 +577,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 $category_labels[ $cat ] ?? $cat,
                 $ts ? 'Yes' : 'No',
                 $ts ? gmdate( 'd/m/Y', $ts ) : '',
+                $completion ? ( $completion['lang'] ?? '' ) : '',
             ) );
         }
 

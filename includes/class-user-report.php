@@ -24,7 +24,6 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
 
         $course_map      = self::get_course_ids_map();
         $category_labels = self::get_category_labels();
-        $ts_col          = self::detect_timestamp_column();
 
         $category_course_ids = ( $cat !== '' && isset( $course_map[ $cat ] ) )
             ? array_map( 'intval', $course_map[ $cat ] )
@@ -56,29 +55,8 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
         // Check completion if a category is selected.
         $completed_set = array();
         if ( $cat !== '' && isset( $course_map[ $cat ] ) ) {
-            $course_ids   = self::resolve_course_ids( $cat, $course_id );
-            $placeholders = implode( ',', array_fill( 0, count( $course_ids ), '%d' ) );
-
-            $activity_sql = "SELECT user_id, MAX(`{$ts_col}`) as completed_ts
-                FROM {$wpdb->prefix}learndash_user_activity
-                WHERE activity_type = 'course'
-                    AND activity_status = 1
-                    AND post_id IN ({$placeholders})";
-
-            $prepare_args = $course_ids;
-
-            if ( $to !== '' ) {
-                $to_ts        = strtotime( $to . ' 23:59:59' );
-                $activity_sql .= $wpdb->prepare( " AND `{$ts_col}` <= %d", $to_ts );
-            }
-
-            $activity_sql .= " GROUP BY user_id";
-
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-            $completed_rows = $wpdb->get_results( $wpdb->prepare( $activity_sql, $prepare_args ) );
-            foreach ( $completed_rows as $row ) {
-                $completed_set[ $row->user_id ] = (int) $row->completed_ts;
-            }
+            $course_ids    = self::resolve_course_ids( $cat, $course_id );
+            $completed_set = self::fetch_user_completions( $course_ids, $to );
         }
 
         // CSV export.
@@ -225,6 +203,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                 ?>
                                     <th><?php echo $has_period ? 'Status (by cutoff)' : 'Status'; ?></th>
                                     <th><?php echo $has_period ? 'Completed Date' : 'Completed'; ?></th>
+                                    <th>Language</th>
                                 <?php endif; ?>
                             </tr>
                         </thead>
@@ -237,7 +216,8 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                 <td><?php echo esc_html( $u->last_name ); ?></td>
                                 <td><?php echo esc_html( $u->company ?? '' ); ?></td>
                                 <?php if ( $cat !== '' ) :
-                                    $user_ts = $completed_set[ $u->ID ] ?? null;
+                                    $completion = $completed_set[ $u->ID ] ?? null;
+                                    $user_ts    = $completion['ts'] ?? null;
                                 ?>
                                     <td>
                                         <?php if ( $user_ts ) : ?>
@@ -247,6 +227,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                         <?php endif; ?>
                                     </td>
                                     <td><?php echo $user_ts ? esc_html( gmdate( 'd/m/Y', $user_ts ) ) : '&mdash;'; ?></td>
+                                    <td><?php echo $user_ts ? esc_html( $completion['lang'] ?: '—' ) : '&mdash;'; ?></td>
                                 <?php endif; ?>
                             </tr>
                             <?php endforeach; ?>
@@ -271,6 +252,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
         if ( $cat !== '' ) {
             $headers[] = 'Has Completed';
             $headers[] = 'Completed Date';
+            $headers[] = 'Language';
         }
         fputcsv( $output, $headers );
 
@@ -283,9 +265,11 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                 $u->company ?? '',
             );
             if ( $cat !== '' ) {
-                $ts = $completed_set[ $u->ID ] ?? null;
-                $row[] = $ts ? 'Yes' : 'No';
-                $row[] = $ts ? gmdate( 'd/m/Y', $ts ) : '';
+                $completion = $completed_set[ $u->ID ] ?? null;
+                $ts         = $completion['ts'] ?? null;
+                $row[]      = $ts ? 'Yes' : 'No';
+                $row[]      = $ts ? gmdate( 'd/m/Y', $ts ) : '';
+                $row[]      = $completion ? ( $completion['lang'] ?? '' ) : '';
             }
             fputcsv( $output, $row );
         }
