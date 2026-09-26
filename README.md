@@ -2,7 +2,7 @@
 
 WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and user reports.
 
-**Current version:** 1.7.0
+**Current version:** 1.7.1
 
 ## Contributors
 
@@ -78,8 +78,8 @@ Labels and help text live in `get_metric_definitions()`.
 | Metric | Meaning |
 |---|---|
 | **Enrolled** | Eligible users with access to ≥1 language variant (LearnDash group or direct enrollment) |
-| **Not started** | Enrolled, no course activity row |
-| **In progress** | Enrolled with activity, not completed |
+| **Not started** | Enrolled, no activity with `course_id` = language variant |
+| **In progress** | Enrolled with any LearnDash activity for the course (`course_id`), not completed |
 | **Completed** | Enrolled and finished ≥1 language variant (once per person) |
 | **Completion rate** | Completed ÷ Enrolled |
 | **Completion rate (started)** | Completed ÷ Started (Started = In progress + Completed) |

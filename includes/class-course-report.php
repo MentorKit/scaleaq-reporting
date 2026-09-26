@@ -258,7 +258,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 <?php endforeach; ?>
             </div>
 
-            <p class="saq-scope">Of <?php echo esc_html( $scope_total ); ?> employees in scope (subscribers with a ScaleAQ, Moen Marin or Maskon email; test and service accounts excluded).</p>
+            <p class="saq-scope"><?php echo esc_html( self::format_scope_line( $scope_total ) ); ?></p>
 
             <?php if ( $completed_unenrolled > 0 ) : ?>
             <p class="saq-note saq-note--warning" style="margin: 0 0 20px; font-size: 13px; color: #92400e; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 10px 14px;">
@@ -280,7 +280,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             }
             ?>
 
-            <div class="saq-charts">
+            <div class="saq-charts saq-charts--split">
                 <div class="saq-card saq-donut-wrap" style="margin-bottom: 0;">
                     <p class="saq-card__label">Progress</p>
                     <div class="saq-company-donut" style="position: relative; width: 160px; height: 160px; border-radius: 50%; margin: 0 auto;">
@@ -290,56 +290,56 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                             <span style="font-size: 11px; color: #64748b; margin-top: 2px;">of enrolled</span>
                         </div>
                     </div>
-                    <div class="saq-donut-legend" style="margin-top: 16px;">
-                        <span class="saq-donut-legend__item"><span class="saq-donut-legend__dot" style="background:#10b981;"></span><?php echo esc_html( $completed ); ?> <?php echo esc_html( $metrics['completed']['label'] ); ?></span>
-                        <span class="saq-donut-legend__item"><span class="saq-donut-legend__dot" style="background:#0ea5e9;"></span><?php echo esc_html( $in_progress ); ?> <?php echo esc_html( $metrics['in_progress']['label'] ); ?></span>
-                        <span class="saq-donut-legend__item"><span class="saq-donut-legend__dot" style="background:#94a3b8;"></span><?php echo esc_html( $not_started ); ?> <?php echo esc_html( $metrics['not_started']['label'] ); ?></span>
-                    </div>
+                    <ul class="saq-donut-legend saq-donut-legend--vertical">
+                        <li class="saq-donut-legend__item"><span class="saq-donut-legend__dot" style="background:#10b981;"></span><span class="saq-donut-legend__text"><?php echo esc_html( $completed ); ?> <?php echo esc_html( $metrics['completed']['label'] ); ?></span></li>
+                        <li class="saq-donut-legend__item"><span class="saq-donut-legend__dot" style="background:#0ea5e9;"></span><span class="saq-donut-legend__text"><?php echo esc_html( $in_progress ); ?> <?php echo esc_html( $metrics['in_progress']['label'] ); ?></span></li>
+                        <li class="saq-donut-legend__item"><span class="saq-donut-legend__dot" style="background:#94a3b8;"></span><span class="saq-donut-legend__text"><?php echo esc_html( $not_started ); ?> <?php echo esc_html( $metrics['not_started']['label'] ); ?></span></li>
+                    </ul>
                 </div>
-            </div>
 
-            <div class="saq-card">
-                <p class="saq-card__label">Company Completion Rates</p>
-                <div class="saq-table-wrap">
-                    <table class="saq-table">
-                        <thead>
-                            <tr>
-                                <th>Company</th>
-                                <th><?php echo esc_html( $metrics['enrolled']['label'] ); ?></th>
-                                <th><?php echo esc_html( $metrics['started']['label'] ); ?></th>
-                                <th><?php echo esc_html( $metrics['completed']['label'] ); ?></th>
-                                <th style="min-width: 180px;"><?php echo esc_html( $metrics['completion_rate']['label'] ); ?></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ( $by_company as $cname => $cstats ) :
-                                $c_rate = $cstats['enrolled'] > 0
-                                    ? round( ( $cstats['completed'] / $cstats['enrolled'] ) * 100, 1 )
-                                    : 0;
-                                $c_fill_class = 'saq-progress__fill--high';
-                                if ( $c_rate < 33 ) {
-                                    $c_fill_class = 'saq-progress__fill--low';
-                                } elseif ( $c_rate < 66 ) {
-                                    $c_fill_class = 'saq-progress__fill--mid';
-                                }
-                            ?>
-                            <tr>
-                                <td><strong><?php echo esc_html( $cname ); ?></strong></td>
-                                <td><?php echo esc_html( $cstats['enrolled'] ); ?></td>
-                                <td><?php echo esc_html( $cstats['started'] ); ?></td>
-                                <td><?php echo esc_html( $cstats['completed'] ); ?></td>
-                                <td>
-                                    <div class="saq-progress">
-                                        <div class="saq-progress__bar">
-                                            <div class="saq-progress__fill <?php echo esc_attr( $c_fill_class ); ?>" style="width: <?php echo esc_attr( $c_rate ); ?>%;"></div>
+                <div class="saq-card" style="margin-bottom: 0;">
+                    <p class="saq-card__label">Company Completion Rates</p>
+                    <div class="saq-table-wrap">
+                        <table class="saq-table">
+                            <thead>
+                                <tr>
+                                    <th>Company</th>
+                                    <th><?php echo esc_html( $metrics['enrolled']['label'] ); ?></th>
+                                    <th><?php echo esc_html( $metrics['started']['label'] ); ?></th>
+                                    <th><?php echo esc_html( $metrics['completed']['label'] ); ?></th>
+                                    <th style="min-width: 140px;"><?php echo esc_html( $metrics['completion_rate']['label'] ); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ( $by_company as $cname => $cstats ) :
+                                    $c_rate = $cstats['enrolled'] > 0
+                                        ? round( ( $cstats['completed'] / $cstats['enrolled'] ) * 100, 1 )
+                                        : 0;
+                                    $c_fill_class = 'saq-progress__fill--high';
+                                    if ( $c_rate < 33 ) {
+                                        $c_fill_class = 'saq-progress__fill--low';
+                                    } elseif ( $c_rate < 66 ) {
+                                        $c_fill_class = 'saq-progress__fill--mid';
+                                    }
+                                ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html( $cname ); ?></strong></td>
+                                    <td><?php echo esc_html( $cstats['enrolled'] ); ?></td>
+                                    <td><?php echo esc_html( $cstats['started'] ); ?></td>
+                                    <td><?php echo esc_html( $cstats['completed'] ); ?></td>
+                                    <td>
+                                        <div class="saq-progress">
+                                            <div class="saq-progress__bar">
+                                                <div class="saq-progress__fill <?php echo esc_attr( $c_fill_class ); ?>" style="width: <?php echo esc_attr( $c_rate ); ?>%;"></div>
+                                            </div>
+                                            <span class="saq-progress__text"><?php echo esc_html( $c_rate ); ?>%</span>
                                         </div>
-                                        <span class="saq-progress__text"><?php echo esc_html( $c_rate ); ?>%</span>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 

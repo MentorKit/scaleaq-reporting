@@ -13,15 +13,64 @@ abstract class ScaleAQ_Report_Base {
         return '';
     }
 
+    /**
+     * Allowed email domain substrings for eligible users (shared by SQL filter + scope text).
+     *
+     * @return array<string>
+     */
+    public static function get_allowed_email_domains() {
+        return array(
+            'scaleaq.com',
+            'moenmarin.no',
+            'maskon.no',
+            'scaleaq.academy',
+        );
+    }
+
+    /**
+     * Human-readable scope sentence fragment listing allowed domains.
+     *
+     * @return string e.g. "scaleaq.com, moenmarin.no, maskon.no or scaleaq.academy"
+     */
+    public static function format_allowed_domains_phrase() {
+        $domains = self::get_allowed_email_domains();
+        $n       = count( $domains );
+        if ( $n === 0 ) {
+            return '';
+        }
+        if ( $n === 1 ) {
+            return $domains[0];
+        }
+        $last = array_pop( $domains );
+        return implode( ', ', $domains ) . ' or ' . $last;
+    }
+
+    /**
+     * Scope line under stat cards (count + domain list from get_allowed_email_domains()).
+     *
+     * @param int $scope_total Eligible user count in the current filter.
+     * @return string
+     */
+    public static function format_scope_line( $scope_total ) {
+        return sprintf(
+            'Of %d employees in scope (subscribers with an email at %s; test and service accounts excluded).',
+            (int) $scope_total,
+            self::format_allowed_domains_phrase()
+        );
+    }
+
     public static function get_base_where() {
+        $domain_clauses = array();
+        foreach ( self::get_allowed_email_domains() as $domain ) {
+            $domain_clauses[] = "u.user_email LIKE '%" . esc_sql( $domain ) . "%'";
+        }
+        $domain_sql = implode( "\n                OR ", $domain_clauses );
+
         return "um.meta_key = 'wp_capabilities' AND um.meta_value LIKE '%\"subscriber\"%'
             AND fn.meta_key = 'first_name' AND fn.meta_value != ''
             AND ln.meta_key = 'last_name' AND ln.meta_value != ''
             AND (
-                u.user_email LIKE '%scaleaq.com%'
-                OR u.user_email LIKE '%moenmarin.no%'
-                OR u.user_email LIKE '%maskon.no%'
-                OR u.user_email LIKE '%scaleaq.academy%'
+                {$domain_sql}
             )
             AND u.user_email NOT LIKE '%demo%'
             AND u.user_email NOT LIKE '%revisor%'
@@ -336,11 +385,11 @@ abstract class ScaleAQ_Report_Base {
             ),
             'not_started'          => array(
                 'label' => 'Not started',
-                'help'  => 'Enrolled, but has never opened the course',
+                'help'  => 'Enrolled, but has no LearnDash activity for this course yet',
             ),
             'in_progress'          => array(
                 'label' => 'In progress',
-                'help'  => 'Has opened the course, but not finished it',
+                'help'  => 'Has course activity (lesson, topic, quiz or access), but not finished',
             ),
             'completed'            => array(
                 'label' => 'Completed',
@@ -356,7 +405,7 @@ abstract class ScaleAQ_Report_Base {
             ),
             'started'              => array(
                 'label' => 'Started',
-                'help'  => 'In progress + Completed',
+                'help'  => 'In progress + Completed (any activity with course_id = language variant)',
             ),
         );
     }
@@ -571,10 +620,13 @@ abstract class ScaleAQ_Report_Base {
     }
 
     /**
-     * Users with any course activity row for the given course IDs (any activity_status).
-     * Returns latest activity post_id + language per user (for In progress language column).
+     * Users with any LearnDash activity for the given courses (ProPanel-aligned).
      *
-     * @param array $course_ids Course post IDs.
+     * Matches DISTINCT user_id WHERE course_id IN (...), any activity_type
+     * (course / lesson / topic / quiz / access) — not only activity_type=course.
+     * Language comes from the course_id of the latest activity row.
+     *
+     * @param array $course_ids Language-variant course post IDs.
      * @return array<int, array{post_id: int, lang: string}> user_id => data
      */
     public static function fetch_started_user_activity( $course_ids ) {
@@ -592,16 +644,14 @@ abstract class ScaleAQ_Report_Base {
 
         $inner_sql = "SELECT user_id, MAX(COALESCE(NULLIF(activity_completed, 0), NULLIF(activity_updated, 0), NULLIF(activity_started, 0), 0)) AS max_ts
             FROM {$wpdb->prefix}learndash_user_activity
-            WHERE activity_type = 'course'
-                AND post_id IN ({$placeholders})
+            WHERE course_id IN ({$placeholders})
             GROUP BY user_id";
 
-        $sql = "SELECT a.user_id, a.post_id
+        $sql = "SELECT a.user_id, a.course_id AS lang_course_id
             FROM {$wpdb->prefix}learndash_user_activity a
             INNER JOIN ({$inner_sql}) m
                 ON a.user_id = m.user_id AND {$ts_expr} = m.max_ts
-            WHERE a.activity_type = 'course'
-                AND a.post_id IN ({$placeholders})";
+            WHERE a.course_id IN ({$placeholders})";
 
         $prepare_args = array_merge( $course_ids, $course_ids );
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
@@ -613,10 +663,10 @@ abstract class ScaleAQ_Report_Base {
             if ( isset( $set[ $uid ] ) ) {
                 continue;
             }
-            $post_id = (int) $row->post_id;
-            $set[ $uid ] = array(
-                'post_id' => $post_id,
-                'lang'    => self::format_completion_language( $post_id ),
+            $lang_course_id = (int) $row->lang_course_id;
+            $set[ $uid ]    = array(
+                'post_id' => $lang_course_id,
+                'lang'    => self::format_completion_language( $lang_course_id ),
             );
         }
         return $set;

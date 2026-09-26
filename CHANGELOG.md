@@ -5,6 +5,16 @@ All notable changes to the ScaleAQ Reporting plugin will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-09-26
+
+### Changed
+
+- **Started / In progress** now count any `learndash_user_activity` row with `course_id` in the language-variant IDs (lesson/topic/quiz/access/course), aligning with ProPanel before filters
+- Scope line under stat cards is built from `get_allowed_email_domains()` (same source as `get_base_where()`)
+- Progress donut and Company Completion Rates sit side-by-side (1/3 + 2/3); donut legend is a vertical list
+
+## [1.7.0] - 2026-09-26
+
 ## [1.7.0] - 2026-09-26
 
 ### Added
