@@ -78,7 +78,7 @@ class ScaleAQ_CLI_Seed {
         $user_ids = $this->seed_users();
         $this->seed_activity( $user_ids );
 
-        WP_CLI::success( sprintf( 'Seeded %d users with LearnDash activity.', count( $user_ids ) ) );
+        WP_CLI::success( sprintf( 'Seeded %d users with Simplylearn activity.', count( $user_ids ) ) );
     }
 
     private function reset(): void {
@@ -98,7 +98,7 @@ class ScaleAQ_CLI_Seed {
 
         $id_placeholders = implode( ',', array_fill( 0, count( $seed_user_ids ), '%d' ) );
 
-        // Delete LearnDash activity rows.
+        // Delete Simplylearn activity rows.
         $wpdb->query(
             $wpdb->prepare(
                 "DELETE FROM {$wpdb->prefix}learndash_user_activity WHERE user_id IN ($id_placeholders)",
@@ -242,7 +242,7 @@ class ScaleAQ_CLI_Seed {
             ) {$charset}"
         );
 
-        WP_CLI::log( 'Created learndash_user_activity table (LearnDash not installed).' );
+        WP_CLI::log( 'Created learndash_user_activity table (Simplylearn not installed).' );
     }
 
     private function seed_activity( array $user_ids ): void {

@@ -5,6 +5,14 @@ All notable changes to the ScaleAQ Reporting plugin will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.3] - 2026-09-26
+
+### Changed
+
+- Branding: replace user-facing **LearnDash** references with **Simplylearn** (docs, plugin header, metric help text). Technical table/meta keys unchanged.
+
+## [1.7.2] - 2026-09-26
+
 ## [1.7.2] - 2026-09-26
 
 ### Added
@@ -33,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Renamed **Assigned** → **Enrolled** (LearnDash / ProPanel terminology)
+- Renamed **Assigned** → **Enrolled** (Simplylearn / ProPanel terminology)
 - Removed Total users and Not completed stat cards (replaced by Not started + In progress)
 - Donut chart: three segments (Completed / In progress / Not started)
 - Company chart replaced by a rate-sorted table: Enrolled | Started | Completed | Rate
@@ -47,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Assigned** and **Started** metrics on Course Completion (and User Report / CSV when a category is selected)
-- Assigned = eligible users with LearnDash group access, direct `course_{id}_access_from`, or an open course (SQL, one query per category)
+- Assigned = eligible users with Simplylearn group access, direct `course_{id}_access_from`, or an open course (SQL, one query per category)
 - Started = Assigned users with any `learndash_user_activity` course row for the selected language IDs
 - Stat cards: Total users | Assigned | Started | Completed | Not completed | Completion rate
 - Line for **Completed (no longer assigned)** when users finished but no longer have access

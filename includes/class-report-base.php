@@ -121,7 +121,7 @@ abstract class ScaleAQ_Report_Base {
     }
 
     /**
-     * All LearnDash course post IDs for a canonical course (Polylang + fallbacks).
+     * All Simplylearn course post IDs for a canonical course (Polylang + fallbacks).
      *
      * @param int $course_id Canonical course post ID.
      * @return array<int>
@@ -234,7 +234,7 @@ abstract class ScaleAQ_Report_Base {
     /**
      * Format Polylang language slug for display (NO / EN / ES).
      *
-     * @param int $post_id LearnDash course post ID used for completion.
+     * @param int $post_id Simplylearn course post ID used for completion.
      * @return string Uppercase language code, or empty string.
      */
     public static function format_completion_language( $post_id ) {
@@ -256,7 +256,7 @@ abstract class ScaleAQ_Report_Base {
     /**
      * Fetch latest course completion per user (timestamp + post_id for language).
      *
-     * @param array  $course_ids LearnDash course post IDs (all language variants).
+     * @param array  $course_ids Simplylearn course post IDs (all language variants).
      * @param string $to         Cutoff date YYYY-MM-DD, or empty for all time.
      * @return array<int, array{ts: int, post_id: int, lang: string}> user_id => completion data.
      */
@@ -317,7 +317,7 @@ abstract class ScaleAQ_Report_Base {
     }
 
     /**
-     * Fetch display titles for course IDs (LearnDash posts).
+     * Fetch display titles for course IDs (Simplylearn posts).
      *
      * @param array $course_ids Course post IDs.
      * @return array Map of course_id => title.
@@ -387,7 +387,7 @@ abstract class ScaleAQ_Report_Base {
             ),
             'not_started'          => array(
                 'label' => 'Not started',
-                'help'  => 'Enrolled, but has no LearnDash activity for this course yet',
+                'help'  => 'Enrolled, but has no Simplylearn activity for this course yet',
             ),
             'in_progress'          => array(
                 'label' => 'In progress',
@@ -496,7 +496,7 @@ abstract class ScaleAQ_Report_Base {
     }
 
     /**
-     * Whether a LearnDash course is open (anyone can access).
+     * Whether a Simplylearn course is open (anyone can access).
      *
      * @param int $course_id Course post ID.
      * @return bool
@@ -521,7 +521,7 @@ abstract class ScaleAQ_Report_Base {
     }
 
     /**
-     * Collect LearnDash group IDs linked to any of the given courses.
+     * Collect Simplylearn group IDs linked to any of the given courses.
      *
      * @param array $course_ids Course post IDs.
      * @return array<int>
@@ -550,7 +550,7 @@ abstract class ScaleAQ_Report_Base {
     /**
      * Eligible users (get_base_where) enrolled in at least one of the course IDs.
      *
-     * Enrolled = LearnDash group membership, direct course_{id}_access_from, or open course.
+     * Enrolled = Simplylearn group membership, direct course_{id}_access_from, or open course.
      * One SQL query (plus lightweight group/open lookups) — not sfwd_lms_has_access() per user.
      *
      * @param array $course_ids Language variant course post IDs.
@@ -622,7 +622,7 @@ abstract class ScaleAQ_Report_Base {
     }
 
     /**
-     * Users with any LearnDash activity for the given courses (ProPanel-aligned).
+     * Users with any Simplylearn activity for the given courses (ProPanel-aligned).
      *
      * Matches DISTINCT user_id WHERE course_id IN (...), any activity_type
      * (course / lesson / topic / quiz / access) — not only activity_type=course.
