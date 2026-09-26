@@ -452,7 +452,7 @@ tr.saq-drilldown--open {
 /* ---------- Stat Cards ---------- */
 .saq-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 16px;
     margin-bottom: 20px;
 }
@@ -479,6 +479,8 @@ tr.saq-drilldown--open {
 }
 
 .saq-stat--total::before { background: var(--saq-slate-400); }
+.saq-stat--assigned::before { background: #6366f1; }
+.saq-stat--started::before { background: #0ea5e9; }
 .saq-stat--completed::before { background: var(--saq-emerald-500); }
 .saq-stat--pending::before { background: var(--saq-rose-500); }
 .saq-stat--rate::before { background: linear-gradient(90deg, var(--saq-teal-500), var(--saq-cyan-500)); }

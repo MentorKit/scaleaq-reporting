@@ -60,16 +60,22 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             $users = $all_users;
         }
 
-        // Build completion lookup (one row per user; includes language of latest completion).
+        // Completions, assignment and started lookups.
         $completed_set = self::fetch_user_completions( $course_ids, $to );
+        $assigned_set  = self::fetch_assigned_user_ids( $course_ids );
+        $started_raw   = self::fetch_started_user_ids( $course_ids );
 
-        // Tally stats + build drill-down user lists.
-        $total              = count( $users );
-        $completed          = 0;
-        $by_company         = array();
-        $completed_users    = array();
-        $not_completed_users = array();
-        $by_group           = array(
+        // Tally stats + build drill-down user lists (Assigned is the completion denominator).
+        $total                     = count( $users );
+        $assigned                  = 0;
+        $started                   = 0;
+        $completed                 = 0; // Assigned ∩ Completed.
+        $completed_unassigned      = 0;
+        $by_company                = array();
+        $completed_users           = array();
+        $not_completed_users       = array();
+        $completed_unassigned_users = array();
+        $by_group                  = array(
             'Moen Marin AS' => array( 'total' => 0, 'completed' => 0 ),
             'ScaleAQ Group' => array( 'total' => 0, 'completed' => 0 ),
             'Other'         => array( 'total' => 0, 'completed' => 0 ),
@@ -78,39 +84,51 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
         $group_not_completed = array( 'Moen Marin AS' => array(), 'ScaleAQ Group' => array(), 'Other' => array() );
 
         foreach ( $users as $u ) {
-            $done        = isset( $completed_set[ $u->ID ] );
+            $uid         = (int) $u->ID;
+            $is_assigned = isset( $assigned_set[ $uid ] );
+            $done        = isset( $completed_set[ $uid ] );
+            $has_started = $is_assigned && isset( $started_raw[ $uid ] );
             $comp_name   = trim( $u->company ?? 'Unknown' );
             $group_label = self::get_group_label( $comp_name );
 
-            if ( $done ) {
-                $completed++;
-                $completed_users[] = $u;
-                $group_completed[ $group_label ][] = $u;
-            } else {
-                $not_completed_users[] = $u;
-                $group_not_completed[ $group_label ][] = $u;
-            }
+            if ( $is_assigned ) {
+                $assigned++;
+                if ( $has_started ) {
+                    $started++;
+                }
+                if ( $done ) {
+                    $completed++;
+                    $completed_users[] = $u;
+                    $group_completed[ $group_label ][] = $u;
+                } else {
+                    $not_completed_users[] = $u;
+                    $group_not_completed[ $group_label ][] = $u;
+                }
 
-            if ( ! isset( $by_company[ $comp_name ] ) ) {
-                $by_company[ $comp_name ] = array( 'total' => 0, 'completed' => 0 );
-            }
-            $by_company[ $comp_name ]['total']++;
-            if ( $done ) {
-                $by_company[ $comp_name ]['completed']++;
-            }
+                if ( ! isset( $by_company[ $comp_name ] ) ) {
+                    $by_company[ $comp_name ] = array( 'total' => 0, 'completed' => 0 );
+                }
+                $by_company[ $comp_name ]['total']++;
+                if ( $done ) {
+                    $by_company[ $comp_name ]['completed']++;
+                }
 
-            $by_group[ $group_label ]['total']++;
-            if ( $done ) {
-                $by_group[ $group_label ]['completed']++;
+                $by_group[ $group_label ]['total']++;
+                if ( $done ) {
+                    $by_group[ $group_label ]['completed']++;
+                }
+            } elseif ( $done ) {
+                $completed_unassigned++;
+                $completed_unassigned_users[] = $u;
             }
         }
 
-        $not_completed  = $total - $completed;
-        $completion_pct = $total > 0 ? round( ( $completed / $total ) * 100, 1 ) : 0;
+        $not_completed  = $assigned - $completed;
+        $completion_pct = $assigned > 0 ? round( ( $completed / $assigned ) * 100, 1 ) : 0;
 
         // CSV export.
         if ( $export === '1' ) {
-            self::export_csv( $users, $completed_set, $cat, $category_labels );
+            self::export_csv( $users, $completed_set, $assigned_set, $started_raw, $cat, $category_labels );
             return '';
         }
 
@@ -208,6 +226,14 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     <div class="saq-stat__value"><?php echo esc_html( $total ); ?></div>
                     <div class="saq-stat__label">Total Users</div>
                 </div>
+                <div class="saq-stat saq-stat--assigned saq-stat--clickable" data-saq-dd="saq-dd-assigned" role="button" tabindex="0">
+                    <div class="saq-stat__value"><?php echo esc_html( $assigned ); ?></div>
+                    <div class="saq-stat__label">Assigned</div>
+                </div>
+                <div class="saq-stat saq-stat--started saq-stat--clickable" data-saq-dd="saq-dd-started" role="button" tabindex="0">
+                    <div class="saq-stat__value"><?php echo esc_html( $started ); ?></div>
+                    <div class="saq-stat__label">Started</div>
+                </div>
                 <div class="saq-stat saq-stat--completed saq-stat--clickable" data-saq-dd="saq-dd-completed" role="button" tabindex="0">
                     <div class="saq-stat__value"><?php echo esc_html( $completed ); ?></div>
                     <div class="saq-stat__label"><?php echo esc_html( $lbl_completed ); ?></div>
@@ -221,6 +247,15 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     <div class="saq-stat__label"><?php echo esc_html( $lbl_rate ); ?></div>
                 </div>
             </div>
+            <?php if ( $completed_unassigned > 0 ) : ?>
+            <p class="saq-note saq-note--warning" style="margin: -8px 0 20px; font-size: 13px; color: #92400e; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 10px 14px;">
+                <strong>Completed (no longer assigned):</strong>
+                <button type="button" class="saq-drilldown-toggle" data-saq-dd="saq-dd-completed-unassigned" style="font: inherit; color: inherit; text-decoration: underline; background: none; border: none; cursor: pointer; padding: 0;">
+                    <?php echo esc_html( $completed_unassigned ); ?>
+                </button>
+                — finished the course but do not currently have access (e.g. removed from a group).
+            </p>
+            <?php endif; ?>
 
             <!-- Drill-Down: All Users -->
             <div class="saq-drilldown" id="saq-dd-all-users">
@@ -228,10 +263,91 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                     <p class="saq-card__label">All Users (<?php echo esc_html( $total ); ?>)</p>
                     <div class="saq-table-wrap">
                         <table class="saq-table">
+                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Assigned</th><th>Started</th><th>Status</th><th>Language</th></tr></thead>
+                            <tbody>
+                            <?php foreach ( $users as $u ) :
+                                $uid         = (int) $u->ID;
+                                $u_assigned  = isset( $assigned_set[ $uid ] );
+                                $u_started   = $u_assigned && isset( $started_raw[ $uid ] );
+                                $u_done      = isset( $completed_set[ $uid ] );
+                            ?>
+                                <tr>
+                                    <td><?php echo esc_html( $u->first_name ); ?></td>
+                                    <td><?php echo esc_html( $u->last_name ); ?></td>
+                                    <td><?php echo esc_html( $u->user_email ); ?></td>
+                                    <td><?php echo esc_html( $u->company ?? '' ); ?></td>
+                                    <td><?php echo $u_assigned ? 'Yes' : 'No'; ?></td>
+                                    <td><?php echo $u_started ? 'Yes' : 'No'; ?></td>
+                                    <td>
+                                        <?php if ( $u_done ) : ?>
+                                            <span class="saq-badge saq-badge--yes"><span class="saq-badge__dot"></span> Completed<?php echo $u_assigned ? '' : ' (not assigned)'; ?></span>
+                                        <?php elseif ( $u_assigned ) : ?>
+                                            <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> Not completed</span>
+                                        <?php else : ?>
+                                            <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> Not assigned</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo $u_done ? esc_html( $completed_set[ $uid ]['lang'] ?: '—' ) : '&mdash;'; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drill-Down: Assigned -->
+            <div class="saq-drilldown" id="saq-dd-assigned">
+                <div class="saq-card">
+                    <p class="saq-card__label">Assigned Users (<?php echo esc_html( $assigned ); ?>)</p>
+                    <div class="saq-table-wrap">
+                        <table class="saq-table">
+                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Started</th><th>Status</th><th>Language</th></tr></thead>
+                            <tbody>
+                            <?php foreach ( $users as $u ) :
+                                $uid = (int) $u->ID;
+                                if ( ! isset( $assigned_set[ $uid ] ) ) {
+                                    continue;
+                                }
+                                $u_started = isset( $started_raw[ $uid ] );
+                                $u_done    = isset( $completed_set[ $uid ] );
+                            ?>
+                                <tr>
+                                    <td><?php echo esc_html( $u->first_name ); ?></td>
+                                    <td><?php echo esc_html( $u->last_name ); ?></td>
+                                    <td><?php echo esc_html( $u->user_email ); ?></td>
+                                    <td><?php echo esc_html( $u->company ?? '' ); ?></td>
+                                    <td><?php echo $u_started ? 'Yes' : 'No'; ?></td>
+                                    <td>
+                                        <?php if ( $u_done ) : ?>
+                                            <span class="saq-badge saq-badge--yes"><span class="saq-badge__dot"></span> Completed</span>
+                                        <?php else : ?>
+                                            <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> Not completed</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo $u_done ? esc_html( $completed_set[ $uid ]['lang'] ?: '—' ) : '&mdash;'; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drill-Down: Started -->
+            <div class="saq-drilldown" id="saq-dd-started">
+                <div class="saq-card">
+                    <p class="saq-card__label">Started Users (<?php echo esc_html( $started ); ?>)</p>
+                    <div class="saq-table-wrap">
+                        <table class="saq-table">
                             <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Status</th><th>Language</th></tr></thead>
                             <tbody>
                             <?php foreach ( $users as $u ) :
-                                $u_done = isset( $completed_set[ $u->ID ] );
+                                $uid = (int) $u->ID;
+                                if ( ! isset( $assigned_set[ $uid ] ) || ! isset( $started_raw[ $uid ] ) ) {
+                                    continue;
+                                }
+                                $u_done = isset( $completed_set[ $uid ] );
                             ?>
                                 <tr>
                                     <td><?php echo esc_html( $u->first_name ); ?></td>
@@ -245,7 +361,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                                             <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> Not completed</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?php echo $u_done ? esc_html( $completed_set[ $u->ID ]['lang'] ?: '—' ) : '&mdash;'; ?></td>
+                                    <td><?php echo $u_done ? esc_html( $completed_set[ $uid ]['lang'] ?: '—' ) : '&mdash;'; ?></td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody>
@@ -254,7 +370,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 </div>
             </div>
 
-            <!-- Drill-Down: Completed Users -->
+            <!-- Drill-Down: Completed Users (assigned) -->
             <div class="saq-drilldown" id="saq-dd-completed">
                 <div class="saq-card">
                     <p class="saq-card__label">Completed Users (<?php echo esc_html( count( $completed_users ) ); ?>)</p>
@@ -278,7 +394,33 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 </div>
             </div>
 
-            <!-- Drill-Down: Not Completed Users -->
+            <!-- Drill-Down: Completed but no longer assigned -->
+            <?php if ( ! empty( $completed_unassigned_users ) ) : ?>
+            <div class="saq-drilldown" id="saq-dd-completed-unassigned">
+                <div class="saq-card">
+                    <p class="saq-card__label">Completed (no longer assigned) (<?php echo esc_html( count( $completed_unassigned_users ) ); ?>)</p>
+                    <div class="saq-table-wrap">
+                        <table class="saq-table">
+                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th><th>Language</th></tr></thead>
+                            <tbody>
+                            <?php foreach ( $completed_unassigned_users as $u ) : ?>
+                                <tr>
+                                    <td><?php echo esc_html( $u->first_name ); ?></td>
+                                    <td><?php echo esc_html( $u->last_name ); ?></td>
+                                    <td><?php echo esc_html( $u->user_email ); ?></td>
+                                    <td><?php echo esc_html( $u->company ?? '' ); ?></td>
+                                    <td><?php echo esc_html( gmdate( 'd/m/Y', $completed_set[ $u->ID ]['ts'] ) ); ?></td>
+                                    <td><?php echo esc_html( $completed_set[ $u->ID ]['lang'] ?: '—' ); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Drill-Down: Not Completed Users (assigned only) -->
             <div class="saq-drilldown" id="saq-dd-not-completed">
                 <div class="saq-card">
                     <p class="saq-card__label">Not Completed Users (<?php echo esc_html( count( $not_completed_users ) ); ?>)</p>
@@ -388,7 +530,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                         <thead>
                             <tr>
                                 <th>Company</th>
-                                <th>Total</th>
+                                <th>Assigned</th>
                                 <th>Completed</th>
                                 <th>Not Completed</th>
                                 <th style="min-width: 180px;">Rate</th>
@@ -436,7 +578,7 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                         <thead>
                             <tr>
                                 <th>Group</th>
-                                <th>Total</th>
+                                <th>Assigned</th>
                                 <th>Completed</th>
                                 <th>Not Completed</th>
                                 <th style="min-width: 180px;">Rate</th>
@@ -558,16 +700,19 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
         return ob_get_clean();
     }
 
-    private static function export_csv( $users, $completed_set, $cat, $category_labels ) {
+    private static function export_csv( $users, $completed_set, $assigned_set, $started_raw, $cat, $category_labels ) {
         header( 'Content-Type: text/csv; charset=utf-8' );
         header( 'Content-Disposition: attachment; filename="course-report-' . esc_attr( $cat ) . '.csv"' );
 
         $output = fopen( 'php://output', 'w' );
-        fputcsv( $output, array( 'ID', 'Email', 'First Name', 'Last Name', 'Company', 'Category', 'Completed', 'Completed Date', 'Language' ) );
+        fputcsv( $output, array( 'ID', 'Email', 'First Name', 'Last Name', 'Company', 'Category', 'Assigned', 'Started', 'Completed', 'Completed Date', 'Language' ) );
 
         foreach ( $users as $u ) {
-            $completion = $completed_set[ $u->ID ] ?? null;
+            $uid        = (int) $u->ID;
+            $completion = $completed_set[ $uid ] ?? null;
             $ts         = $completion['ts'] ?? null;
+            $is_assigned = isset( $assigned_set[ $uid ] );
+            $is_started  = $is_assigned && isset( $started_raw[ $uid ] );
             fputcsv( $output, array(
                 $u->ID,
                 $u->user_email,
@@ -575,6 +720,8 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 $u->last_name,
                 $u->company ?? '',
                 $category_labels[ $cat ] ?? $cat,
+                $is_assigned ? 'Yes' : 'No',
+                $is_started ? 'Yes' : 'No',
                 $ts ? 'Yes' : 'No',
                 $ts ? gmdate( 'd/m/Y', $ts ) : '',
                 $completion ? ( $completion['lang'] ?? '' ) : '',

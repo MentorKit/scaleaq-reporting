@@ -5,6 +5,24 @@ All notable changes to the ScaleAQ Reporting plugin will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-09-26
+
+### Added
+
+- **Assigned** and **Started** metrics on Course Completion (and User Report / CSV when a category is selected)
+- Assigned = eligible users with LearnDash group access, direct `course_{id}_access_from`, or an open course (SQL, one query per category)
+- Started = Assigned users with any `learndash_user_activity` course row for the selected language IDs
+- Stat cards: Total users | Assigned | Started | Completed | Not completed | Completion rate
+- Line for **Completed (no longer assigned)** when users finished but no longer have access
+- CSV columns: Assigned, Started, Language (course + user reports)
+
+### Changed
+
+- Completion rate and Not completed use **Assigned** as denominator (`Completed / Assigned`, `Assigned − Completed`)
+- Company and Group tables: Total column is Assigned count for that company/group
+- Not completed drill-down lists only assigned users
+- `get_group_label()` maps company names containing **SCALE AQUACULTURE** to ScaleAQ Group
+
 ## [1.5.0] - 2026-09-25
 
 ### Added

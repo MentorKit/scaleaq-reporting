@@ -2,7 +2,7 @@
 
 WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and user reports.
 
-**Current version:** 1.5.0
+**Current version:** 1.6.0
 
 ## Contributors
 
@@ -70,6 +70,18 @@ Each category lists one **canonical** (Norwegian) LearnDash post ID. Reports tre
 | `ai` | AI | 55110 | 55110 |
 
 Categories and canonical IDs are defined in `includes/class-report-base.php` (`get_course_ids_map()` / `get_category_labels()`). Translation groups use Polylang when available, with `get_course_translation_fallbacks()` as backup.
+
+## Metrics (Course Completion)
+
+| Metric | Meaning |
+|---|---|
+| **Total users** | Eligible users (`get_base_where`) |
+| **Assigned** | Eligible users with access to ≥1 language variant (LearnDash group, direct `course_{id}_access_from`, or open course) |
+| **Started** | Assigned users with any `learndash_user_activity` course row for those IDs |
+| **Completed** | Assigned users who completed ≥1 variant (respects period cutoff) |
+| **Not completed** | Assigned − Completed |
+| **Completion rate** | Completed / Assigned |
+| **Completed (no longer assigned)** | Completed but not currently assigned (shown separately) |
 
 ## Domain filtering
 

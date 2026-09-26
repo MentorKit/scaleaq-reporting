@@ -285,10 +285,172 @@ abstract class ScaleAQ_Report_Base {
         if ( stripos( $company_name, 'Moen Marin' ) !== false ) {
             return 'Moen Marin AS';
         }
-        if ( stripos( $company_name, 'ScaleAQ' ) !== false ) {
+        if (
+            stripos( $company_name, 'ScaleAQ' ) !== false
+            || stripos( $company_name, 'SCALE AQUACULTURE' ) !== false
+        ) {
             return 'ScaleAQ Group';
         }
         return 'Other';
+    }
+
+    /**
+     * Whether a LearnDash course is open (anyone can access).
+     *
+     * @param int $course_id Course post ID.
+     * @return bool
+     */
+    public static function is_course_open( $course_id ) {
+        $course_id = (int) $course_id;
+        if ( $course_id <= 0 ) {
+            return false;
+        }
+
+        if ( function_exists( 'learndash_get_setting' ) ) {
+            $type = learndash_get_setting( $course_id, 'course_price_type' );
+            return is_string( $type ) && strtolower( $type ) === 'open';
+        }
+
+        $meta = get_post_meta( $course_id, '_sfwd-courses', true );
+        if ( is_array( $meta ) && ! empty( $meta['sfwd-courses_course_price_type'] ) ) {
+            return strtolower( (string) $meta['sfwd-courses_course_price_type'] ) === 'open';
+        }
+
+        return false;
+    }
+
+    /**
+     * Collect LearnDash group IDs linked to any of the given courses.
+     *
+     * @param array $course_ids Course post IDs.
+     * @return array<int>
+     */
+    public static function get_groups_for_courses( $course_ids ) {
+        $groups = array();
+        foreach ( array_map( 'intval', $course_ids ) as $course_id ) {
+            if ( $course_id <= 0 ) {
+                continue;
+            }
+            if ( function_exists( 'learndash_get_course_groups' ) ) {
+                $course_groups = learndash_get_course_groups( $course_id );
+                if ( is_array( $course_groups ) ) {
+                    foreach ( $course_groups as $gid ) {
+                        $gid = (int) $gid;
+                        if ( $gid > 0 ) {
+                            $groups[] = $gid;
+                        }
+                    }
+                }
+            }
+        }
+        return array_values( array_unique( $groups ) );
+    }
+
+    /**
+     * Eligible users (get_base_where) who currently have access to at least one course ID.
+     *
+     * Access = LearnDash group membership, direct course_{id}_access_from, or open course.
+     * One SQL query (plus lightweight group/open lookups) — not sfwd_lms_has_access() per user.
+     *
+     * @param array $course_ids Language variant course post IDs.
+     * @return array<int, true> user_id => true
+     */
+    public static function fetch_assigned_user_ids( $course_ids ) {
+        global $wpdb;
+
+        $course_ids = array_values( array_unique( array_map( 'intval', $course_ids ) ) );
+        if ( empty( $course_ids ) ) {
+            return array();
+        }
+
+        $base_where = self::get_base_where();
+
+        foreach ( $course_ids as $cid ) {
+            if ( self::is_course_open( $cid ) ) {
+                $ids = $wpdb->get_col(
+                    "SELECT DISTINCT u.ID
+                    FROM {$wpdb->users} u
+                    INNER JOIN {$wpdb->usermeta} um ON u.ID = um.user_id
+                    INNER JOIN {$wpdb->usermeta} fn ON u.ID = fn.user_id
+                    INNER JOIN {$wpdb->usermeta} ln ON u.ID = ln.user_id
+                    WHERE {$base_where}"
+                );
+                $set = array();
+                foreach ( $ids as $id ) {
+                    $set[ (int) $id ] = true;
+                }
+                return $set;
+            }
+        }
+
+        $meta_keys = array();
+        foreach ( $course_ids as $cid ) {
+            $meta_keys[] = 'course_' . $cid . '_access_from';
+        }
+        foreach ( self::get_groups_for_courses( $course_ids ) as $gid ) {
+            $meta_keys[] = 'learndash_group_users_' . $gid;
+        }
+        $meta_keys = array_values( array_unique( $meta_keys ) );
+        if ( empty( $meta_keys ) ) {
+            return array();
+        }
+
+        // Escape keys individually — do not $wpdb->prepare() the full SQL:
+        // get_base_where() contains LIKE '%...%' which prepare would treat as placeholders.
+        $escaped_keys = array();
+        foreach ( $meta_keys as $key ) {
+            $escaped_keys[] = $wpdb->prepare( '%s', $key );
+        }
+        $in_list = implode( ',', $escaped_keys );
+
+        $sql = "SELECT DISTINCT u.ID
+            FROM {$wpdb->users} u
+            INNER JOIN {$wpdb->usermeta} um ON u.ID = um.user_id
+            INNER JOIN {$wpdb->usermeta} fn ON u.ID = fn.user_id
+            INNER JOIN {$wpdb->usermeta} ln ON u.ID = ln.user_id
+            INNER JOIN {$wpdb->usermeta} acc ON u.ID = acc.user_id AND acc.meta_key IN ({$in_list})
+            WHERE {$base_where}";
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        $ids = $wpdb->get_col( $sql );
+        $set = array();
+        foreach ( $ids as $id ) {
+            $set[ (int) $id ] = true;
+        }
+        return $set;
+    }
+
+    /**
+     * Users with any course activity row for the given course IDs (any activity_status).
+     *
+     * @param array $course_ids Course post IDs.
+     * @return array<int, true> user_id => true
+     */
+    public static function fetch_started_user_ids( $course_ids ) {
+        global $wpdb;
+
+        $course_ids = array_values( array_unique( array_map( 'intval', $course_ids ) ) );
+        if ( empty( $course_ids ) ) {
+            return array();
+        }
+
+        $placeholders = implode( ',', array_fill( 0, count( $course_ids ), '%d' ) );
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        $ids = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT DISTINCT user_id
+                FROM {$wpdb->prefix}learndash_user_activity
+                WHERE activity_type = 'course'
+                    AND post_id IN ({$placeholders})",
+                $course_ids
+            )
+        );
+
+        $set = array();
+        foreach ( $ids as $id ) {
+            $set[ (int) $id ] = true;
+        }
+        return $set;
     }
 
     public static function detect_timestamp_column() {
