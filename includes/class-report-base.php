@@ -24,6 +24,8 @@ abstract class ScaleAQ_Report_Base {
             'moenmarin.no',
             'maskon.no',
             'scaleaq.academy',
+            'pmh.no',
+            'probotic.no',
         );
     }
 

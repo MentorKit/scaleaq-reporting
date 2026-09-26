@@ -2,7 +2,7 @@
 
 WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and user reports.
 
-**Current version:** 1.7.1
+**Current version:** 1.7.2
 
 ## Contributors
 
@@ -85,16 +85,18 @@ Labels and help text live in `get_metric_definitions()`.
 | **Completion rate (started)** | Completed ÷ Started (Started = In progress + Completed) |
 | **Completed (no longer enrolled)** | Finished but no longer enrolled (shown separately) |
 
-Scope line under the cards: employees matching `get_base_where` (subscribers with ScaleAQ / Moen Marin / Maskon emails; test and service accounts excluded).
+Scope line under the cards: built from `get_allowed_email_domains()` / `format_scope_line()` (same domains as `get_base_where()`).
 
 ## Domain filtering
 
-Only users with emails matching these domains are included:
+Only users with emails matching these domains are included (from `get_allowed_email_domains()`):
 
 - `scaleaq.com`
 - `moenmarin.no`
 - `maskon.no`
 - `scaleaq.academy`
+- `pmh.no`
+- `probotic.no`
 
 Emails containing `demo`, `revisor`, `test`, `dummy`, `admin`, `support`, `spare.equipment`, `logistics`, `bank`, `accounts`, `seleccion`, or `developers` are excluded.
 
