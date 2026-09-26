@@ -1,8 +1,8 @@
 # ScaleAQ Reporting
 
-WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and user reports.
+WordPress plugin for ScaleAQ Academy (Simplylearn LMS) — course completion and user reports.
 
-**Current version:** 1.7.2
+**Current version:** 1.7.3
 
 ## Contributors
 
@@ -12,7 +12,7 @@ WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and u
 
 - WordPress 6.0+
 - PHP 8.0+
-- LearnDash LMS (or seeded data for local dev)
+- Simplylearn LMS (or seeded data for local dev)
 
 ## Shortcodes
 
@@ -32,7 +32,7 @@ Both reports share the same filter bar layout:
 | **Company** | Multi-select company filter |
 | **Time Period** | All time, cutoff presets, or custom cutoff date |
 
-Changing **Category** clears the course selection and refreshes the course list (titles come from LearnDash course posts).
+Changing **Category** clears the course selection and refreshes the course list (titles come from Simplylearn course posts).
 
 On **User Report**, the Course dropdown is disabled until a category is selected.
 
@@ -44,7 +44,7 @@ On **User Report**, the Course dropdown is disabled until a category is selected
 | Parameter | Description |
 |---|---|
 | `cr_cat` / `ur_cat` | Category key (`hse`, `coc`, `it`, `ai`). User report: empty = all courses / no completion column |
-| `cr_course` / `ur_course` | Canonical (Norwegian) LearnDash course post ID for the selected category. Legacy language-specific IDs in old URLs are still accepted. Empty (default) = all courses in that category |
+| `cr_course` / `ur_course` | Canonical (Norwegian) Simplylearn course post ID for the selected category. Legacy language-specific IDs in old URLs are still accepted. Empty (default) = all courses in that category |
 | `cr_period` / `ur_period` | `all`, `2025`, `2024`, or `custom` |
 | `cr_to` / `ur_to` | Cutoff date `YYYY-MM-DD` (used when period is `custom`) |
 | `cr_company[]` / `ur_company[]` | One or more company names |
@@ -60,7 +60,7 @@ Example — IT category, single course:
 
 ## Course categories
 
-Each category lists one **canonical** (Norwegian) LearnDash post ID. Reports treat a user as **Completed** when they have finished **at least one** published language variant of **any** course in the selection (Polylang translations are merged via `get_course_language_ids()`).
+Each category lists one **canonical** (Norwegian) Simplylearn post ID. Reports treat a user as **Completed** when they have finished **at least one** published language variant of **any** course in the selection (Polylang translations are merged via `get_course_language_ids()`).
 
 | Key | Label | Canonical course ID | Language variants (fallback IDs) |
 |---|---|---|---|
@@ -77,9 +77,9 @@ Labels and help text live in `get_metric_definitions()`.
 
 | Metric | Meaning |
 |---|---|
-| **Enrolled** | Eligible users with access to ≥1 language variant (LearnDash group or direct enrollment) |
+| **Enrolled** | Eligible users with access to ≥1 language variant (Simplylearn group or direct enrollment) |
 | **Not started** | Enrolled, no activity with `course_id` = language variant |
-| **In progress** | Enrolled with any LearnDash activity for the course (`course_id`), not completed |
+| **In progress** | Enrolled with any Simplylearn activity for the course (`course_id`), not completed |
 | **Completed** | Enrolled and finished ≥1 language variant (once per person) |
 | **Completion rate** | Completed ÷ Enrolled |
 | **Completion rate (started)** | Completed ÷ Started (Started = In progress + Completed) |
@@ -102,7 +102,7 @@ Emails containing `demo`, `revisor`, `test`, `dummy`, `admin`, `support`, `spare
 
 ## Local development
 
-Seed test data (50 users + LearnDash activity):
+Seed test data (50 users + Simplylearn activity):
 
 ```bash
 wp scaleaq seed
