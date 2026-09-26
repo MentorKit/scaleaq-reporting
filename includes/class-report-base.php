@@ -285,6 +285,15 @@ abstract class ScaleAQ_Report_Base {
         if ( stripos( $company_name, 'Moen Marin' ) !== false ) {
             return 'Moen Marin AS';
         }
+        if ( stripos( $company_name, 'Maskon' ) !== false ) {
+            return 'Maskon';
+        }
+        if ( stripos( $company_name, 'Probotic' ) !== false ) {
+            return 'Probotic';
+        }
+        if ( stripos( $company_name, 'PMH' ) !== false ) {
+            return 'PMH';
+        }
         if (
             stripos( $company_name, 'ScaleAQ' ) !== false
             || stripos( $company_name, 'SCALE AQUACULTURE' ) !== false
@@ -292,6 +301,147 @@ abstract class ScaleAQ_Report_Base {
             return 'ScaleAQ Group';
         }
         return 'Other';
+    }
+
+    /**
+     * Ordered group labels for report tables.
+     *
+     * @return array<string>
+     */
+    public static function get_group_labels_ordered() {
+        return array( 'ScaleAQ Group', 'Moen Marin AS', 'Maskon', 'Probotic', 'PMH', 'Other' );
+    }
+
+    /**
+     * Display label for an empty company name.
+     *
+     * @param string $company_name Raw company meta.
+     * @return string
+     */
+    public static function format_company_name( $company_name ) {
+        $company_name = trim( (string) $company_name );
+        return $company_name !== '' ? $company_name : '(no company)';
+    }
+
+    /**
+     * Shared metric labels and help text (UI, tables, CSV).
+     *
+     * @return array<string, array{label: string, help: string}>
+     */
+    public static function get_metric_definitions() {
+        return array(
+            'enrolled'             => array(
+                'label' => 'Enrolled',
+                'help'  => 'Has access to the course in at least one language, through a group or direct enrollment',
+            ),
+            'not_started'          => array(
+                'label' => 'Not started',
+                'help'  => 'Enrolled, but has never opened the course',
+            ),
+            'in_progress'          => array(
+                'label' => 'In progress',
+                'help'  => 'Has opened the course, but not finished it',
+            ),
+            'completed'            => array(
+                'label' => 'Completed',
+                'help'  => 'Finished the course in at least one language (counted once per person)',
+            ),
+            'completion_rate'      => array(
+                'label' => 'Completion rate',
+                'help'  => 'Completed ÷ Enrolled',
+            ),
+            'completion_rate_started' => array(
+                'label' => 'Completion rate (started)',
+                'help'  => 'Completed ÷ Started: how many of those who begin, finish',
+            ),
+            'started'              => array(
+                'label' => 'Started',
+                'help'  => 'In progress + Completed',
+            ),
+        );
+    }
+
+    /**
+     * Per-user status labels for CSV / tables.
+     *
+     * @return array<string, string>
+     */
+    public static function get_status_labels() {
+        return array(
+            'not_started' => 'Not started',
+            'in_progress' => 'In progress',
+            'completed'   => 'Completed',
+            'not_enrolled' => 'Not enrolled',
+        );
+    }
+
+    /**
+     * Resolve a user's funnel status.
+     *
+     * @param bool $enrolled  Has course access.
+     * @param bool $started   Has any course activity row.
+     * @param bool $completed Has completed (within period).
+     * @return string Status key.
+     */
+    public static function resolve_user_status( $enrolled, $started, $completed ) {
+        if ( ! $enrolled ) {
+            return 'not_enrolled';
+        }
+        if ( $completed ) {
+            return 'completed';
+        }
+        if ( $started ) {
+            return 'in_progress';
+        }
+        return 'not_started';
+    }
+
+    /**
+     * Language codes (NO / EN / ES) for course post IDs, stable order.
+     *
+     * @param array $course_ids Course post IDs.
+     * @return array<string>
+     */
+    public static function get_language_codes_for_courses( $course_ids ) {
+        $order = array( 'NO' => 0, 'EN' => 1, 'ES' => 2 );
+        $found = array();
+        foreach ( array_map( 'intval', $course_ids ) as $cid ) {
+            $code = self::format_completion_language( $cid );
+            if ( $code !== '' ) {
+                $found[ $code ] = true;
+            }
+        }
+        $codes = array_keys( $found );
+        usort(
+            $codes,
+            function ( $a, $b ) use ( $order ) {
+                $oa = $order[ $a ] ?? 99;
+                $ob = $order[ $b ] ?? 99;
+                return $oa <=> $ob;
+            }
+        );
+        return $codes;
+    }
+
+    /**
+     * Subtitle: course title(s) · language codes.
+     *
+     * @param array $canonical_ids Canonical course IDs in selection.
+     * @param array $all_ids       All language variant IDs.
+     * @return string
+     */
+    public static function format_report_subtitle( $canonical_ids, $all_ids ) {
+        $titles = self::get_course_titles( $canonical_ids );
+        $title_parts = array();
+        foreach ( $canonical_ids as $cid ) {
+            $title_parts[] = $titles[ (int) $cid ] ?? ( 'Course #' . (int) $cid );
+        }
+        $langs = self::get_language_codes_for_courses( $all_ids );
+        $left  = implode( ' · ', $title_parts );
+        if ( empty( $langs ) ) {
+            return $left;
+        }
+        return $left . ' · ' . implode( ' / ', $langs );
     }
 
     /**
@@ -347,15 +497,15 @@ abstract class ScaleAQ_Report_Base {
     }
 
     /**
-     * Eligible users (get_base_where) who currently have access to at least one course ID.
+     * Eligible users (get_base_where) enrolled in at least one of the course IDs.
      *
-     * Access = LearnDash group membership, direct course_{id}_access_from, or open course.
+     * Enrolled = LearnDash group membership, direct course_{id}_access_from, or open course.
      * One SQL query (plus lightweight group/open lookups) — not sfwd_lms_has_access() per user.
      *
      * @param array $course_ids Language variant course post IDs.
      * @return array<int, true> user_id => true
      */
-    public static function fetch_assigned_user_ids( $course_ids ) {
+    public static function fetch_enrolled_user_ids( $course_ids ) {
         global $wpdb;
 
         $course_ids = array_values( array_unique( array_map( 'intval', $course_ids ) ) );
@@ -422,11 +572,12 @@ abstract class ScaleAQ_Report_Base {
 
     /**
      * Users with any course activity row for the given course IDs (any activity_status).
+     * Returns latest activity post_id + language per user (for In progress language column).
      *
      * @param array $course_ids Course post IDs.
-     * @return array<int, true> user_id => true
+     * @return array<int, array{post_id: int, lang: string}> user_id => data
      */
-    public static function fetch_started_user_ids( $course_ids ) {
+    public static function fetch_started_user_activity( $course_ids ) {
         global $wpdb;
 
         $course_ids = array_values( array_unique( array_map( 'intval', $course_ids ) ) );
@@ -435,20 +586,53 @@ abstract class ScaleAQ_Report_Base {
         }
 
         $placeholders = implode( ',', array_fill( 0, count( $course_ids ), '%d' ) );
+
+        // Prefer completed, then updated/started — activity_completed is often NULL while in progress.
+        $ts_expr = 'COALESCE(NULLIF(a.activity_completed, 0), NULLIF(a.activity_updated, 0), NULLIF(a.activity_started, 0), 0)';
+
+        $inner_sql = "SELECT user_id, MAX(COALESCE(NULLIF(activity_completed, 0), NULLIF(activity_updated, 0), NULLIF(activity_started, 0), 0)) AS max_ts
+            FROM {$wpdb->prefix}learndash_user_activity
+            WHERE activity_type = 'course'
+                AND post_id IN ({$placeholders})
+            GROUP BY user_id";
+
+        $sql = "SELECT a.user_id, a.post_id
+            FROM {$wpdb->prefix}learndash_user_activity a
+            INNER JOIN ({$inner_sql}) m
+                ON a.user_id = m.user_id AND {$ts_expr} = m.max_ts
+            WHERE a.activity_type = 'course'
+                AND a.post_id IN ({$placeholders})";
+
+        $prepare_args = array_merge( $course_ids, $course_ids );
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-        $ids = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT DISTINCT user_id
-                FROM {$wpdb->prefix}learndash_user_activity
-                WHERE activity_type = 'course'
-                    AND post_id IN ({$placeholders})",
-                $course_ids
-            )
-        );
+        $rows = $wpdb->get_results( $wpdb->prepare( $sql, $prepare_args ) );
 
         $set = array();
-        foreach ( $ids as $id ) {
-            $set[ (int) $id ] = true;
+        foreach ( $rows as $row ) {
+            $uid = (int) $row->user_id;
+            if ( isset( $set[ $uid ] ) ) {
+                continue;
+            }
+            $post_id = (int) $row->post_id;
+            $set[ $uid ] = array(
+                'post_id' => $post_id,
+                'lang'    => self::format_completion_language( $post_id ),
+            );
+        }
+        return $set;
+    }
+
+    /**
+     * Users with any course activity (set form).
+     *
+     * @param array $course_ids Course post IDs.
+     * @return array<int, true>
+     */
+    public static function fetch_started_user_ids( $course_ids ) {
+        $activity = self::fetch_started_user_activity( $course_ids );
+        $set      = array();
+        foreach ( $activity as $uid => $_ ) {
+            $set[ (int) $uid ] = true;
         }
         return $set;
     }

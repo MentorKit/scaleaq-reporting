@@ -54,18 +54,18 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
 
         // Check completion / assignment if a category is selected.
         $completed_set = array();
-        $assigned_set  = array();
+        $enrolled_set  = array();
         $started_raw   = array();
         if ( $cat !== '' && isset( $course_map[ $cat ] ) ) {
             $course_ids    = self::resolve_course_ids( $cat, $course_id );
             $completed_set = self::fetch_user_completions( $course_ids, $to );
-            $assigned_set  = self::fetch_assigned_user_ids( $course_ids );
+            $enrolled_set  = self::fetch_enrolled_user_ids( $course_ids );
             $started_raw   = self::fetch_started_user_ids( $course_ids );
         }
 
         // CSV export.
         if ( $export === '1' ) {
-            self::export_csv( $users, $completed_set, $assigned_set, $started_raw, $cat, $category_labels );
+            self::export_csv( $users, $completed_set, $enrolled_set, $started_raw, $cat, $category_labels );
             return '';
         }
 
@@ -205,7 +205,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                 <?php if ( $cat !== '' ) :
                                     $has_period = $period !== 'all';
                                 ?>
-                                    <th>Assigned</th>
+                                    <th>Enrolled</th>
                                     <th>Started</th>
                                     <th><?php echo $has_period ? 'Status (by cutoff)' : 'Status'; ?></th>
                                     <th><?php echo $has_period ? 'Completed Date' : 'Completed'; ?></th>
@@ -225,10 +225,10 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
                                     $uid        = (int) $u->ID;
                                     $completion = $completed_set[ $uid ] ?? null;
                                     $user_ts    = $completion['ts'] ?? null;
-                                    $u_assigned = isset( $assigned_set[ $uid ] );
-                                    $u_started  = $u_assigned && isset( $started_raw[ $uid ] );
+                                    $u_enrolled = isset( $enrolled_set[ $uid ] );
+                                    $u_started  = $u_enrolled && isset( $started_raw[ $uid ] );
                                 ?>
-                                    <td><?php echo $u_assigned ? 'Yes' : 'No'; ?></td>
+                                    <td><?php echo $u_enrolled ? 'Yes' : 'No'; ?></td>
                                     <td><?php echo $u_started ? 'Yes' : 'No'; ?></td>
                                     <td>
                                         <?php if ( $user_ts ) : ?>
@@ -253,7 +253,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
         return ob_get_clean();
     }
 
-    private static function export_csv( $users, $completed_set, $assigned_set, $started_raw, $cat, $category_labels ) {
+    private static function export_csv( $users, $completed_set, $enrolled_set, $started_raw, $cat, $category_labels ) {
         header( 'Content-Type: text/csv; charset=utf-8' );
         header( 'Content-Disposition: attachment; filename="user-report.csv"' );
 
@@ -261,7 +261,7 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
 
         $headers = array( 'ID', 'Email', 'First Name', 'Last Name', 'Company' );
         if ( $cat !== '' ) {
-            $headers[] = 'Assigned';
+            $headers[] = 'Enrolled';
             $headers[] = 'Started';
             $headers[] = 'Has Completed';
             $headers[] = 'Completed Date';
@@ -281,9 +281,9 @@ class ScaleAQ_User_Report extends ScaleAQ_Report_Base {
             if ( $cat !== '' ) {
                 $completion  = $completed_set[ $uid ] ?? null;
                 $ts          = $completion['ts'] ?? null;
-                $is_assigned = isset( $assigned_set[ $uid ] );
-                $is_started  = $is_assigned && isset( $started_raw[ $uid ] );
-                $row[]       = $is_assigned ? 'Yes' : 'No';
+                $is_enrolled = isset( $enrolled_set[ $uid ] );
+                $is_started  = $is_enrolled && isset( $started_raw[ $uid ] );
+                $row[]       = $is_enrolled ? 'Yes' : 'No';
                 $row[]       = $is_started ? 'Yes' : 'No';
                 $row[]       = $ts ? 'Yes' : 'No';
                 $row[]       = $ts ? gmdate( 'd/m/Y', $ts ) : '';

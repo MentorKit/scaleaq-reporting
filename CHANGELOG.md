@@ -5,6 +5,27 @@ All notable changes to the ScaleAQ Reporting plugin will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-09-26
+
+### Added
+
+- Funnel metrics: **Enrolled**, **Not started**, **In progress**, **Completed**, plus Completion rate and Completion rate (started)
+- Shared metric definitions (`get_metric_definitions()`) used in stat cards, company/group tables, and CSV
+- Help text under each stat card; scope line under the cards
+- Report subtitle with course title and language codes (NO / EN / ES)
+- Group rows for **Maskon**, **Probotic**, and **PMH** (plus ScaleAQ Group, Moen Marin AS, Other)
+
+### Changed
+
+- Renamed **Assigned** → **Enrolled** (LearnDash / ProPanel terminology)
+- Removed Total users and Not completed stat cards (replaced by Not started + In progress)
+- Donut chart: three segments (Completed / In progress / Not started)
+- Company chart replaced by a rate-sorted table: Enrolled | Started | Completed | Rate
+- Empty company names display as `(no company)`
+- CSV columns: ID, Email, First name, Last name, Company, Group, Enrolled, Started, Completed, Status, Language, Completed date
+
+## [1.6.0] - 2026-09-26
+
 ## [1.6.0] - 2026-09-26
 
 ### Added

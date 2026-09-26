@@ -2,7 +2,7 @@
 
 WordPress plugin for ScaleAQ Academy (LearnDash LMS) — course completion and user reports.
 
-**Current version:** 1.6.0
+**Current version:** 1.7.0
 
 ## Contributors
 
@@ -73,15 +73,19 @@ Categories and canonical IDs are defined in `includes/class-report-base.php` (`g
 
 ## Metrics (Course Completion)
 
+Labels and help text live in `get_metric_definitions()`.
+
 | Metric | Meaning |
 |---|---|
-| **Total users** | Eligible users (`get_base_where`) |
-| **Assigned** | Eligible users with access to ≥1 language variant (LearnDash group, direct `course_{id}_access_from`, or open course) |
-| **Started** | Assigned users with any `learndash_user_activity` course row for those IDs |
-| **Completed** | Assigned users who completed ≥1 variant (respects period cutoff) |
-| **Not completed** | Assigned − Completed |
-| **Completion rate** | Completed / Assigned |
-| **Completed (no longer assigned)** | Completed but not currently assigned (shown separately) |
+| **Enrolled** | Eligible users with access to ≥1 language variant (LearnDash group or direct enrollment) |
+| **Not started** | Enrolled, no course activity row |
+| **In progress** | Enrolled with activity, not completed |
+| **Completed** | Enrolled and finished ≥1 language variant (once per person) |
+| **Completion rate** | Completed ÷ Enrolled |
+| **Completion rate (started)** | Completed ÷ Started (Started = In progress + Completed) |
+| **Completed (no longer enrolled)** | Finished but no longer enrolled (shown separately) |
+
+Scope line under the cards: employees matching `get_base_where` (subscribers with ScaleAQ / Moen Marin / Maskon emails; test and service accounts excluded).
 
 ## Domain filtering
 
