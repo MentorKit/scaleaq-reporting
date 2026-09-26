@@ -5,6 +5,76 @@ All notable changes to the ScaleAQ Reporting plugin will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - 2026-09-26
+
+### Added
+
+- Email domains `pmh.no` and `probotic.no` in `get_allowed_email_domains()` (eligible users / scope line)
+
+## [1.7.1] - 2026-09-26
+
+## [1.7.1] - 2026-09-26
+
+### Changed
+
+- **Started / In progress** now count any `learndash_user_activity` row with `course_id` in the language-variant IDs (lesson/topic/quiz/access/course), aligning with ProPanel before filters
+- Scope line under stat cards is built from `get_allowed_email_domains()` (same source as `get_base_where()`)
+- Progress donut and Company Completion Rates sit side-by-side (1/3 + 2/3); donut legend is a vertical list
+
+## [1.7.0] - 2026-09-26
+
+### Added
+
+- Funnel metrics: **Enrolled**, **Not started**, **In progress**, **Completed**, plus Completion rate and Completion rate (started)
+- Shared metric definitions (`get_metric_definitions()`) used in stat cards, company/group tables, and CSV
+- Help text under each stat card; scope line under the cards
+- Report subtitle with course title and language codes (NO / EN / ES)
+- Group rows for **Maskon**, **Probotic**, and **PMH** (plus ScaleAQ Group, Moen Marin AS, Other)
+
+### Changed
+
+- Renamed **Assigned** → **Enrolled** (LearnDash / ProPanel terminology)
+- Removed Total users and Not completed stat cards (replaced by Not started + In progress)
+- Donut chart: three segments (Completed / In progress / Not started)
+- Company chart replaced by a rate-sorted table: Enrolled | Started | Completed | Rate
+- Empty company names display as `(no company)`
+- CSV columns: ID, Email, First name, Last name, Company, Group, Enrolled, Started, Completed, Status, Language, Completed date
+
+## [1.6.0] - 2026-09-26
+
+## [1.6.0] - 2026-09-26
+
+### Added
+
+- **Assigned** and **Started** metrics on Course Completion (and User Report / CSV when a category is selected)
+- Assigned = eligible users with LearnDash group access, direct `course_{id}_access_from`, or an open course (SQL, one query per category)
+- Started = Assigned users with any `learndash_user_activity` course row for the selected language IDs
+- Stat cards: Total users | Assigned | Started | Completed | Not completed | Completion rate
+- Line for **Completed (no longer assigned)** when users finished but no longer have access
+- CSV columns: Assigned, Started, Language (course + user reports)
+
+### Changed
+
+- Completion rate and Not completed use **Assigned** as denominator (`Completed / Assigned`, `Assigned − Completed`)
+- Company and Group tables: Total column is Assigned count for that company/group
+- Not completed drill-down lists only assigned users
+- `get_group_label()` maps company names containing **SCALE AQUACULTURE** to ScaleAQ Group
+
+## [1.5.0] - 2026-09-25
+
+### Added
+
+- Polylang-aware course grouping: each category uses one canonical (Norwegian) course ID; completions count across all published language variants of that course
+- New **AI** category (`cr_cat=ai` / `ur_cat=ai`) for course *Grunnkurs AI og Copilot* (55110), removed from IT
+- **Language** column in drill-down tables, User Report (when a category is selected), and both CSV exports — shows the language of the user’s latest completion (NO/EN/ES)
+- `get_course_language_ids()` and hardcoded translation fallbacks (including IT Spanish 52985) when Polylang is unavailable
+
+### Changed
+
+- Course filter dropdown shows one entry per logical course (Norwegian title), not per language version
+- Category course maps: HSE `[47052]`, CoC `[47053]`, IT `[50348]`, AI `[55110]`
+- Legacy `cr_course` / `ur_course` URLs with an old language-specific post ID (e.g. `46681`) still resolve to the correct course
+
 ## [1.4.0] - 2026-08-24
 
 ### Added

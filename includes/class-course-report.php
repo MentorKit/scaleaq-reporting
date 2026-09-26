@@ -11,15 +11,17 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
 
         wp_enqueue_style( 'scaleaq-reports' );
 
+        $metrics  = self::get_metric_definitions();
+        $statuses = self::get_status_labels();
+
         $cat     = sanitize_text_field( $_GET['cr_cat'] ?? 'hse' );
         $period  = sanitize_text_field( $_GET['cr_period'] ?? 'all' );
         $to      = self::sanitize_date( $_GET['cr_to'] ?? '' );
         $companies_selected = self::sanitize_companies( $_GET['cr_company'] ?? array() );
         $export  = sanitize_text_field( $_GET['cr_export'] ?? '' );
 
-        // Resolve period preset to cutoff date.
-        $resolved = self::resolve_period( $period, $to );
-        $to       = $resolved['to'];
+        $resolved     = self::resolve_period( $period, $to );
+        $to           = $resolved['to'];
         $period_label = $resolved['label'];
 
         $course_map      = self::get_course_ids_map();
@@ -33,14 +35,11 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
         $course_id           = self::sanitize_course_id( $_GET['cr_course'] ?? 0, $category_course_ids );
         $course_ids          = self::resolve_course_ids( $cat, $course_id );
         $course_titles       = self::get_course_titles( $category_course_ids );
-        $ts_col              = self::detect_timestamp_column();
 
-        $report_title = $category_labels[ $cat ];
-        if ( $course_id > 0 ) {
-            $report_title .= ' — ' . ( $course_titles[ $course_id ] ?? ( 'Course #' . $course_id ) );
-        }
+        $canonical_for_subtitle = $course_id > 0 ? array( $course_id ) : $category_course_ids;
+        $report_title           = $category_labels[ $cat ];
+        $report_subtitle        = self::format_report_subtitle( $canonical_for_subtitle, $course_ids );
 
-        // Build company dropdown options.
         $company_sql = self::get_base_user_query();
         $all_users   = $wpdb->get_results( $company_sql );
 
@@ -53,7 +52,6 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
         }
         sort( $companies );
 
-        // Filter users by company if selected.
         if ( ! empty( $companies_selected ) ) {
             $extra_where = self::build_company_where( $companies_selected );
             $users       = $wpdb->get_results( self::get_base_user_query( $extra_where ) );
@@ -61,111 +59,130 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
             $users = $all_users;
         }
 
-        // Build completion lookup.
-        $placeholders = implode( ',', array_fill( 0, count( $course_ids ), '%d' ) );
-        $activity_sql = "SELECT user_id, MAX(`{$ts_col}`) as completed_ts
-            FROM {$wpdb->prefix}learndash_user_activity
-            WHERE activity_type = 'course'
-                AND activity_status = 1
-                AND post_id IN ({$placeholders})";
+        $scope_total      = count( $users );
+        $completed_set    = self::fetch_user_completions( $course_ids, $to );
+        $enrolled_set     = self::fetch_enrolled_user_ids( $course_ids );
+        $started_activity = self::fetch_started_user_activity( $course_ids );
 
-        $prepare_args = $course_ids;
+        $enrolled                   = 0;
+        $not_started                = 0;
+        $in_progress                = 0;
+        $completed                  = 0;
+        $completed_unenrolled       = 0;
+        $by_company                 = array();
+        $group_keys                 = self::get_group_labels_ordered();
+        $by_group                   = array();
+        $enrolled_users             = array();
+        $not_started_users          = array();
+        $in_progress_users          = array();
+        $completed_users            = array();
+        $completed_unenrolled_users = array();
+        $group_completed            = array();
 
-        if ( $to !== '' ) {
-            $to_ts        = strtotime( $to . ' 23:59:59' );
-            $activity_sql .= $wpdb->prepare( " AND `{$ts_col}` <= %d", $to_ts );
+        foreach ( $group_keys as $gk ) {
+            $by_group[ $gk ]        = array( 'enrolled' => 0, 'started' => 0, 'completed' => 0 );
+            $group_completed[ $gk ] = array();
         }
-
-        $activity_sql .= " GROUP BY user_id";
-
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-        $completed_rows = $wpdb->get_results( $wpdb->prepare( $activity_sql, $prepare_args ) );
-        $completed_set  = array();
-        foreach ( $completed_rows as $row ) {
-            $completed_set[ $row->user_id ] = (int) $row->completed_ts;
-        }
-
-        // Tally stats + build drill-down user lists.
-        $total              = count( $users );
-        $completed          = 0;
-        $by_company         = array();
-        $completed_users    = array();
-        $not_completed_users = array();
-        $by_group           = array(
-            'Moen Marin AS' => array( 'total' => 0, 'completed' => 0 ),
-            'ScaleAQ Group' => array( 'total' => 0, 'completed' => 0 ),
-            'Other'         => array( 'total' => 0, 'completed' => 0 ),
-        );
-        $group_completed     = array( 'Moen Marin AS' => array(), 'ScaleAQ Group' => array(), 'Other' => array() );
-        $group_not_completed = array( 'Moen Marin AS' => array(), 'ScaleAQ Group' => array(), 'Other' => array() );
 
         foreach ( $users as $u ) {
-            $done        = isset( $completed_set[ $u->ID ] );
-            $comp_name   = trim( $u->company ?? 'Unknown' );
-            $group_label = self::get_group_label( $comp_name );
+            $uid         = (int) $u->ID;
+            $is_enrolled = isset( $enrolled_set[ $uid ] );
+            $is_done     = isset( $completed_set[ $uid ] );
+            $is_started  = isset( $started_activity[ $uid ] );
+            $status_key  = self::resolve_user_status( $is_enrolled, $is_started, $is_done );
+            $comp_name   = self::format_company_name( $u->company ?? '' );
+            $group_label = self::get_group_label( $u->company ?? '' );
 
-            if ( $done ) {
-                $completed++;
-                $completed_users[] = $u;
-                $group_completed[ $group_label ][] = $u;
-            } else {
-                $not_completed_users[] = $u;
-                $group_not_completed[ $group_label ][] = $u;
-            }
+            if ( $is_enrolled ) {
+                $enrolled++;
+                $enrolled_users[] = $u;
 
-            if ( ! isset( $by_company[ $comp_name ] ) ) {
-                $by_company[ $comp_name ] = array( 'total' => 0, 'completed' => 0 );
-            }
-            $by_company[ $comp_name ]['total']++;
-            if ( $done ) {
-                $by_company[ $comp_name ]['completed']++;
-            }
+                if ( $status_key === 'completed' ) {
+                    $completed++;
+                    $completed_users[] = $u;
+                    $group_completed[ $group_label ][] = $u;
+                } elseif ( $status_key === 'in_progress' ) {
+                    $in_progress++;
+                    $in_progress_users[] = $u;
+                } else {
+                    $not_started++;
+                    $not_started_users[] = $u;
+                }
 
-            $by_group[ $group_label ]['total']++;
-            if ( $done ) {
-                $by_group[ $group_label ]['completed']++;
+                if ( ! isset( $by_company[ $comp_name ] ) ) {
+                    $by_company[ $comp_name ] = array( 'enrolled' => 0, 'started' => 0, 'completed' => 0 );
+                }
+                $by_company[ $comp_name ]['enrolled']++;
+                if ( $is_started || $is_done ) {
+                    $by_company[ $comp_name ]['started']++;
+                }
+                if ( $is_done ) {
+                    $by_company[ $comp_name ]['completed']++;
+                }
+
+                $by_group[ $group_label ]['enrolled']++;
+                if ( $is_started || $is_done ) {
+                    $by_group[ $group_label ]['started']++;
+                }
+                if ( $is_done ) {
+                    $by_group[ $group_label ]['completed']++;
+                }
+            } elseif ( $is_done ) {
+                $completed_unenrolled++;
+                $completed_unenrolled_users[] = $u;
             }
         }
 
-        $not_completed  = $total - $completed;
-        $completion_pct = $total > 0 ? round( ( $completed / $total ) * 100, 1 ) : 0;
+        $started                = $in_progress + $completed;
+        $completion_pct         = $enrolled > 0 ? round( ( $completed / $enrolled ) * 100, 1 ) : 0;
+        $completion_pct_started = $started > 0 ? round( ( $completed / $started ) * 100, 1 ) : 0;
 
-        // CSV export.
         if ( $export === '1' ) {
-            self::export_csv( $users, $completed_set, $cat, $category_labels );
+            self::export_csv( $users, $completed_set, $enrolled_set, $started_activity, $statuses );
             return '';
         }
 
-        // Filter companies to only those with completions, sort descending.
-        $by_company_completed = array_filter( $by_company, function ( $stats ) {
-            return $stats['completed'] > 0;
-        } );
-        uasort( $by_company_completed, function ( $a, $b ) {
-            return $b['completed'] - $a['completed'];
-        } );
-        $total_company_completions = array_sum( array_column( $by_company_completed, 'completed' ) );
+        uasort(
+            $by_company,
+            function ( $a, $b ) {
+                $ra = $a['enrolled'] > 0 ? ( $a['completed'] / $a['enrolled'] ) : 0;
+                $rb = $b['enrolled'] > 0 ? ( $b['completed'] / $b['enrolled'] ) : 0;
+                if ( $ra === $rb ) {
+                    return $b['enrolled'] <=> $a['enrolled'];
+                }
+                return $rb <=> $ra;
+            }
+        );
 
-        // Render output.
+        $donut_completed_pct   = $enrolled > 0 ? ( $completed / $enrolled ) * 100 : 0;
+        $donut_in_progress_pct = $enrolled > 0 ? ( $in_progress / $enrolled ) * 100 : 0;
+        $deg_c = $donut_completed_pct * 3.6;
+        $deg_i = $donut_in_progress_pct * 3.6;
+        $donut_gradient = sprintf(
+            'conic-gradient(#10b981 0deg %sdeg, #0ea5e9 %sdeg %sdeg, #94a3b8 %sdeg 360deg)',
+            $deg_c,
+            $deg_c,
+            $deg_c + $deg_i,
+            $deg_c + $deg_i
+        );
+
         ob_start();
         ?>
         <div class="scaleaq-report scaleaq-course-report">
 
-            <!-- Header -->
             <div class="saq-header">
                 <div class="saq-header__icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/></svg>
                 </div>
                 <div>
                     <h2 class="saq-header__title">Course Completion: <?php echo esc_html( $report_title ); ?></h2>
-                    <?php if ( $period === 'all' ) : ?>
-                        <p class="saq-header__subtitle">Showing all completions recorded, regardless of date</p>
-                    <?php else : ?>
-                        <p class="saq-header__subtitle">Showing completions recorded by: <?php echo esc_html( $period_label ); ?></p>
+                    <p class="saq-header__subtitle"><?php echo esc_html( $report_subtitle ); ?></p>
+                    <?php if ( $period !== 'all' ) : ?>
+                        <p class="saq-header__subtitle" style="margin-top: 4px;">Completions by: <?php echo esc_html( $period_label ); ?></p>
                     <?php endif; ?>
                 </div>
             </div>
 
-            <!-- Filters -->
             <form method="get" class="saq-card" style="animation-delay: 0s; position: relative; z-index: 10;">
                 <div class="saq-filters">
                     <div class="saq-filters__group saq-filters__group--grow">
@@ -218,237 +235,114 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                 </div>
             </form>
 
-            <?php
-            $has_period    = $period !== 'all';
-            $lbl_completed = $has_period ? 'Completed by cutoff' : 'Completed';
-            $lbl_not       = $has_period ? 'Not completed by cutoff' : 'Not Completed';
-            $lbl_rate      = $has_period ? 'Rate by cutoff' : 'Completion Rate';
-            ?>
-            <!-- Stat Cards -->
             <div class="saq-stats">
-                <div class="saq-stat saq-stat--total saq-stat--clickable" data-saq-dd="saq-dd-all-users" role="button" tabindex="0">
-                    <div class="saq-stat__value"><?php echo esc_html( $total ); ?></div>
-                    <div class="saq-stat__label">Total Users</div>
+                <?php
+                $stat_cards = array(
+                    array( 'key' => 'enrolled', 'value' => $enrolled, 'dd' => 'saq-dd-enrolled', 'mod' => 'assigned' ),
+                    array( 'key' => 'not_started', 'value' => $not_started, 'dd' => 'saq-dd-not-started', 'mod' => 'pending' ),
+                    array( 'key' => 'in_progress', 'value' => $in_progress, 'dd' => 'saq-dd-in-progress', 'mod' => 'started' ),
+                    array( 'key' => 'completed', 'value' => $completed, 'dd' => 'saq-dd-completed', 'mod' => 'completed' ),
+                    array( 'key' => 'completion_rate', 'value' => $completion_pct . '%', 'dd' => '', 'mod' => 'rate' ),
+                    array( 'key' => 'completion_rate_started', 'value' => $completion_pct_started . '%', 'dd' => '', 'mod' => 'rate' ),
+                );
+                foreach ( $stat_cards as $card ) :
+                    $def       = $metrics[ $card['key'] ];
+                    $clickable = $card['dd'] !== '';
+                    ?>
+                <div class="saq-stat saq-stat--<?php echo esc_attr( $card['mod'] ); ?><?php echo $clickable ? ' saq-stat--clickable' : ''; ?>"
+                    <?php echo $clickable ? ' data-saq-dd="' . esc_attr( $card['dd'] ) . '" role="button" tabindex="0"' : ''; ?>>
+                    <div class="saq-stat__value"><?php echo esc_html( $card['value'] ); ?></div>
+                    <div class="saq-stat__label"><?php echo esc_html( $def['label'] ); ?></div>
+                    <div class="saq-stat__help"><?php echo esc_html( $def['help'] ); ?></div>
                 </div>
-                <div class="saq-stat saq-stat--completed saq-stat--clickable" data-saq-dd="saq-dd-completed" role="button" tabindex="0">
-                    <div class="saq-stat__value"><?php echo esc_html( $completed ); ?></div>
-                    <div class="saq-stat__label"><?php echo esc_html( $lbl_completed ); ?></div>
-                </div>
-                <div class="saq-stat saq-stat--pending saq-stat--clickable" data-saq-dd="saq-dd-not-completed" role="button" tabindex="0">
-                    <div class="saq-stat__value"><?php echo esc_html( $not_completed ); ?></div>
-                    <div class="saq-stat__label"><?php echo esc_html( $lbl_not ); ?></div>
-                </div>
-                <div class="saq-stat saq-stat--rate">
-                    <div class="saq-stat__value"><?php echo esc_html( $completion_pct ); ?>%</div>
-                    <div class="saq-stat__label"><?php echo esc_html( $lbl_rate ); ?></div>
-                </div>
+                <?php endforeach; ?>
             </div>
 
-            <!-- Drill-Down: All Users -->
-            <div class="saq-drilldown" id="saq-dd-all-users">
-                <div class="saq-card">
-                    <p class="saq-card__label">All Users (<?php echo esc_html( $total ); ?>)</p>
-                    <div class="saq-table-wrap">
-                        <table class="saq-table">
-                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Status</th></tr></thead>
-                            <tbody>
-                            <?php foreach ( $users as $u ) :
-                                $u_done = isset( $completed_set[ $u->ID ] );
-                            ?>
-                                <tr>
-                                    <td><?php echo esc_html( $u->first_name ); ?></td>
-                                    <td><?php echo esc_html( $u->last_name ); ?></td>
-                                    <td><?php echo esc_html( $u->user_email ); ?></td>
-                                    <td><?php echo esc_html( $u->company ?? '' ); ?></td>
-                                    <td>
-                                        <?php if ( $u_done ) : ?>
-                                            <span class="saq-badge saq-badge--yes"><span class="saq-badge__dot"></span> Completed</span>
-                                        <?php else : ?>
-                                            <span class="saq-badge saq-badge--no"><span class="saq-badge__dot"></span> Not completed</span>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+            <p class="saq-scope"><?php echo esc_html( self::format_scope_line( $scope_total ) ); ?></p>
 
-            <!-- Drill-Down: Completed Users -->
-            <div class="saq-drilldown" id="saq-dd-completed">
-                <div class="saq-card">
-                    <p class="saq-card__label">Completed Users (<?php echo esc_html( count( $completed_users ) ); ?>)</p>
-                    <div class="saq-table-wrap">
-                        <table class="saq-table">
-                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th></tr></thead>
-                            <tbody>
-                            <?php foreach ( $completed_users as $u ) : ?>
-                                <tr>
-                                    <td><?php echo esc_html( $u->first_name ); ?></td>
-                                    <td><?php echo esc_html( $u->last_name ); ?></td>
-                                    <td><?php echo esc_html( $u->user_email ); ?></td>
-                                    <td><?php echo esc_html( $u->company ?? '' ); ?></td>
-                                    <td><?php echo esc_html( gmdate( 'd/m/Y', $completed_set[ $u->ID ] ) ); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Drill-Down: Not Completed Users -->
-            <div class="saq-drilldown" id="saq-dd-not-completed">
-                <div class="saq-card">
-                    <p class="saq-card__label">Not Completed Users (<?php echo esc_html( count( $not_completed_users ) ); ?>)</p>
-                    <div class="saq-table-wrap">
-                        <table class="saq-table">
-                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th></tr></thead>
-                            <tbody>
-                            <?php foreach ( $not_completed_users as $u ) : ?>
-                                <tr>
-                                    <td><?php echo esc_html( $u->first_name ); ?></td>
-                                    <td><?php echo esc_html( $u->last_name ); ?></td>
-                                    <td><?php echo esc_html( $u->user_email ); ?></td>
-                                    <td><?php echo esc_html( $u->company ?? '' ); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Charts: Donut + Company Bars -->
-            <div class="saq-charts">
-                <div class="saq-card saq-donut-wrap" style="margin-bottom: 0;">
-                    <p class="saq-card__label">Completion</p>
-                    <div class="saq-donut" style="--saq-pct: <?php echo esc_attr( $completion_pct ); ?>;">
-                        <div class="saq-donut__ring"></div>
-                        <div class="saq-donut__hole">
-                            <span class="saq-donut__pct"><?php echo esc_html( $completion_pct ); ?><span class="saq-donut__pct-sign">%</span></span>
-                            <span class="saq-donut__caption">completed</span>
-                        </div>
-                    </div>
-                    <div class="saq-donut-legend">
-                        <span class="saq-donut-legend__item">
-                            <span class="saq-donut-legend__dot saq-donut-legend__dot--completed"></span>
-                            <?php echo esc_html( $completed ); ?> done
-                        </span>
-                        <span class="saq-donut-legend__item">
-                            <span class="saq-donut-legend__dot saq-donut-legend__dot--pending"></span>
-                            <?php echo esc_html( $not_completed ); ?> remaining
-                        </span>
-                    </div>
-                </div>
-
-                <?php if ( ! empty( $by_company_completed ) ) :
-                    // Build conic-gradient segments and legend colors.
-                    $company_colors = array(
-                        '#14b8a6', '#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444',
-                        '#10b981', '#3b82f6', '#ec4899', '#f97316', '#6366f1',
-                        '#84cc16', '#0ea5e9', '#d946ef', '#eab308', '#64748b',
-                    );
-                    $segments = array();
-                    $legend_items = array();
-                    $deg_cursor = 0;
-                    $i = 0;
-                    foreach ( $by_company_completed as $cname => $stats ) :
-                        $color = $company_colors[ $i % count( $company_colors ) ];
-                        $slice_deg = $total_company_completions > 0
-                            ? ( $stats['completed'] / $total_company_completions ) * 360
-                            : 0;
-                        $end_deg = $deg_cursor + $slice_deg;
-                        $segments[] = "{$color} {$deg_cursor}deg {$end_deg}deg";
-                        $legend_items[] = array( 'name' => $cname, 'count' => $stats['completed'], 'color' => $color );
-                        $deg_cursor = $end_deg;
-                        $i++;
-                    endforeach;
-                    $gradient = implode( ', ', $segments );
-                ?>
-                <div class="saq-card" style="margin-bottom: 0; padding: 0;">
-                    <div style="padding: 24px 24px 8px;">
-                        <p class="saq-card__label" style="margin-bottom: 0;">Completions by Company</p>
-                    </div>
-                    <div class="saq-company-chart" style="display: flex; align-items: center; gap: 32px; padding: 24px;">
-                        <div class="saq-company-donut" style="position: relative; width: 160px; height: 160px; border-radius: 50%; flex-shrink: 0;">
-                            <div class="saq-company-donut__ring" style="position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(<?php echo $gradient; ?>);"></div>
-                            <div class="saq-company-donut__hole" style="position: absolute; inset: 28px; border-radius: 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1;">
-                                <span class="saq-company-donut__total" style="font-family: 'Outfit', system-ui, sans-serif; font-size: 28px; font-weight: 800; color: #0b1120; line-height: 1;"><?php echo esc_html( $total_company_completions ); ?></span>
-                                <span class="saq-company-donut__caption" style="font-size: 11px; color: #64748b; margin-top: 2px;">completed</span>
-                            </div>
-                        </div>
-                        <div class="saq-company-legend" style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0;">
-                            <?php foreach ( $legend_items as $item ) : ?>
-                            <div class="saq-company-legend__item" style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #334155; font-weight: 500;">
-                                <span class="saq-company-legend__dot" style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; background: <?php echo esc_attr( $item['color'] ); ?>;"></span>
-                                <span class="saq-company-legend__name" style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?php echo esc_html( $item['name'] ); ?></span>
-                                <span class="saq-company-legend__count" style="font-family: 'Outfit', system-ui, sans-serif; font-weight: 700; color: #1e293b; margin-left: auto; flex-shrink: 0;"><?php echo esc_html( $item['count'] ); ?></span>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                </div>
-                <?php endif; ?>
-            </div>
-
-            <?php
-            // Per-company breakdown when multiple companies are selected (or all).
-            $show_company_table = count( $by_company ) > 1;
-            if ( $show_company_table ) :
-                // Sort by company name.
-                ksort( $by_company );
-            ?>
-            <!-- Company Completion Table -->
-            <div class="saq-card">
-                <p class="saq-card__label">Company Completion Rates</p>
-                <div class="saq-table-wrap">
-                    <table class="saq-table">
-                        <thead>
-                            <tr>
-                                <th>Company</th>
-                                <th>Total</th>
-                                <th>Completed</th>
-                                <th>Not Completed</th>
-                                <th style="min-width: 180px;">Rate</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ( $by_company as $cname => $cstats ) :
-                                $c_rate = $cstats['total'] > 0
-                                    ? round( ( $cstats['completed'] / $cstats['total'] ) * 100, 1 )
-                                    : 0;
-                                $c_fill_class = 'saq-progress__fill--high';
-                                if ( $c_rate < 33 ) {
-                                    $c_fill_class = 'saq-progress__fill--low';
-                                } elseif ( $c_rate < 66 ) {
-                                    $c_fill_class = 'saq-progress__fill--mid';
-                                }
-                                $c_not = $cstats['total'] - $cstats['completed'];
-                            ?>
-                            <tr>
-                                <td><strong><?php echo esc_html( $cname ); ?></strong></td>
-                                <td><?php echo esc_html( $cstats['total'] ); ?></td>
-                                <td><?php echo esc_html( $cstats['completed'] ); ?></td>
-                                <td><?php echo esc_html( $c_not ); ?></td>
-                                <td>
-                                    <div class="saq-progress">
-                                        <div class="saq-progress__bar">
-                                            <div class="saq-progress__fill <?php echo esc_attr( $c_fill_class ); ?>" style="width: <?php echo esc_attr( $c_rate ); ?>%;"></div>
-                                        </div>
-                                        <span class="saq-progress__text"><?php echo esc_html( $c_rate ); ?>%</span>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <?php if ( $completed_unenrolled > 0 ) : ?>
+            <p class="saq-note saq-note--warning" style="margin: 0 0 20px; font-size: 13px; color: #92400e; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 10px 14px;">
+                <strong>Completed (no longer enrolled):</strong>
+                <button type="button" class="saq-drilldown-toggle" data-saq-dd="saq-dd-completed-unenrolled" style="font: inherit; color: inherit; text-decoration: underline; background: none; border: none; cursor: pointer; padding: 0;">
+                    <?php echo esc_html( $completed_unenrolled ); ?>
+                </button>
+                — finished the course but do not currently have access.
+            </p>
             <?php endif; ?>
 
-            <!-- Group Completion Table -->
+            <?php
+            self::render_user_drilldown( 'saq-dd-enrolled', $metrics['enrolled']['label'], $enrolled_users, $completed_set, $started_activity, true );
+            self::render_user_drilldown( 'saq-dd-not-started', $metrics['not_started']['label'], $not_started_users, $completed_set, $started_activity, false );
+            self::render_user_drilldown( 'saq-dd-in-progress', $metrics['in_progress']['label'], $in_progress_users, $completed_set, $started_activity, false );
+            self::render_user_drilldown( 'saq-dd-completed', $metrics['completed']['label'], $completed_users, $completed_set, $started_activity, true );
+            if ( ! empty( $completed_unenrolled_users ) ) {
+                self::render_user_drilldown( 'saq-dd-completed-unenrolled', 'Completed (no longer enrolled)', $completed_unenrolled_users, $completed_set, $started_activity, true );
+            }
+            ?>
+
+            <div class="saq-charts saq-charts--split">
+                <div class="saq-card saq-donut-wrap" style="margin-bottom: 0;">
+                    <p class="saq-card__label">Progress</p>
+                    <div class="saq-company-donut" style="position: relative; width: 160px; height: 160px; border-radius: 50%; margin: 0 auto;">
+                        <div style="position: absolute; inset: 0; border-radius: 50%; background: <?php echo esc_attr( $donut_gradient ); ?>;"></div>
+                        <div style="position: absolute; inset: 28px; border-radius: 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1;">
+                            <span style="font-family: 'Outfit', system-ui, sans-serif; font-size: 28px; font-weight: 800; color: #0b1120; line-height: 1;"><?php echo esc_html( $completion_pct ); ?>%</span>
+                            <span style="font-size: 11px; color: #64748b; margin-top: 2px;">of enrolled</span>
+                        </div>
+                    </div>
+                    <ul class="saq-donut-legend saq-donut-legend--vertical">
+                        <li class="saq-donut-legend__item"><span class="saq-donut-legend__dot" style="background:#10b981;"></span><span class="saq-donut-legend__text"><?php echo esc_html( $completed ); ?> <?php echo esc_html( $metrics['completed']['label'] ); ?></span></li>
+                        <li class="saq-donut-legend__item"><span class="saq-donut-legend__dot" style="background:#0ea5e9;"></span><span class="saq-donut-legend__text"><?php echo esc_html( $in_progress ); ?> <?php echo esc_html( $metrics['in_progress']['label'] ); ?></span></li>
+                        <li class="saq-donut-legend__item"><span class="saq-donut-legend__dot" style="background:#94a3b8;"></span><span class="saq-donut-legend__text"><?php echo esc_html( $not_started ); ?> <?php echo esc_html( $metrics['not_started']['label'] ); ?></span></li>
+                    </ul>
+                </div>
+
+                <div class="saq-card" style="margin-bottom: 0;">
+                    <p class="saq-card__label">Company Completion Rates</p>
+                    <div class="saq-table-wrap">
+                        <table class="saq-table">
+                            <thead>
+                                <tr>
+                                    <th>Company</th>
+                                    <th><?php echo esc_html( $metrics['enrolled']['label'] ); ?></th>
+                                    <th><?php echo esc_html( $metrics['started']['label'] ); ?></th>
+                                    <th><?php echo esc_html( $metrics['completed']['label'] ); ?></th>
+                                    <th style="min-width: 140px;"><?php echo esc_html( $metrics['completion_rate']['label'] ); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ( $by_company as $cname => $cstats ) :
+                                    $c_rate = $cstats['enrolled'] > 0
+                                        ? round( ( $cstats['completed'] / $cstats['enrolled'] ) * 100, 1 )
+                                        : 0;
+                                    $c_fill_class = 'saq-progress__fill--high';
+                                    if ( $c_rate < 33 ) {
+                                        $c_fill_class = 'saq-progress__fill--low';
+                                    } elseif ( $c_rate < 66 ) {
+                                        $c_fill_class = 'saq-progress__fill--mid';
+                                    }
+                                ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html( $cname ); ?></strong></td>
+                                    <td><?php echo esc_html( $cstats['enrolled'] ); ?></td>
+                                    <td><?php echo esc_html( $cstats['started'] ); ?></td>
+                                    <td><?php echo esc_html( $cstats['completed'] ); ?></td>
+                                    <td>
+                                        <div class="saq-progress">
+                                            <div class="saq-progress__bar">
+                                                <div class="saq-progress__fill <?php echo esc_attr( $c_fill_class ); ?>" style="width: <?php echo esc_attr( $c_rate ); ?>%;"></div>
+                                            </div>
+                                            <span class="saq-progress__text"><?php echo esc_html( $c_rate ); ?>%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div class="saq-card">
                 <p class="saq-card__label">Group Completion Rates</p>
                 <div class="saq-table-wrap">
@@ -456,16 +350,16 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                         <thead>
                             <tr>
                                 <th>Group</th>
-                                <th>Total</th>
-                                <th>Completed</th>
-                                <th>Not Completed</th>
-                                <th style="min-width: 180px;">Rate</th>
+                                <th><?php echo esc_html( $metrics['enrolled']['label'] ); ?></th>
+                                <th><?php echo esc_html( $metrics['started']['label'] ); ?></th>
+                                <th><?php echo esc_html( $metrics['completed']['label'] ); ?></th>
+                                <th style="min-width: 180px;"><?php echo esc_html( $metrics['completion_rate']['label'] ); ?></th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ( $by_group as $gname => $gstats ) :
-                                $rate = $gstats['total'] > 0
-                                    ? round( ( $gstats['completed'] / $gstats['total'] ) * 100, 1 )
+                                $rate = $gstats['enrolled'] > 0
+                                    ? round( ( $gstats['completed'] / $gstats['enrolled'] ) * 100, 1 )
                                     : 0;
                                 $fill_class = 'saq-progress__fill--high';
                                 if ( $rate < 33 ) {
@@ -473,24 +367,17 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                                 } elseif ( $rate < 66 ) {
                                     $fill_class = 'saq-progress__fill--mid';
                                 }
-                                $gslug       = sanitize_title( $gname );
-                                $g_not_count = $gstats['total'] - $gstats['completed'];
+                                $gslug = sanitize_title( $gname );
                             ?>
                             <tr>
                                 <td><strong><?php echo esc_html( $gname ); ?></strong></td>
-                                <td><?php echo esc_html( $gstats['total'] ); ?></td>
+                                <td><?php echo esc_html( $gstats['enrolled'] ); ?></td>
+                                <td><?php echo esc_html( $gstats['started'] ); ?></td>
                                 <td>
                                     <?php if ( $gstats['completed'] > 0 ) : ?>
                                         <button type="button" class="saq-drilldown-toggle" onclick="document.getElementById('saq-dd-grp-c-<?php echo esc_attr( $gslug ); ?>').classList.toggle('saq-drilldown--open')"><?php echo esc_html( $gstats['completed'] ); ?></button>
                                     <?php else : ?>
                                         <?php echo esc_html( $gstats['completed'] ); ?>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?php if ( $g_not_count > 0 ) : ?>
-                                        <button type="button" class="saq-drilldown-toggle" onclick="document.getElementById('saq-dd-grp-nc-<?php echo esc_attr( $gslug ); ?>').classList.toggle('saq-drilldown--open')"><?php echo esc_html( $g_not_count ); ?></button>
-                                    <?php else : ?>
-                                        <?php echo esc_html( $g_not_count ); ?>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -506,39 +393,18 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
                             <tr class="saq-drilldown" id="saq-dd-grp-c-<?php echo esc_attr( $gslug ); ?>">
                                 <td colspan="5" style="padding: 0;">
                                     <div class="saq-drilldown__inner">
-                                        <p class="saq-card__label">Completed — <?php echo esc_html( $gname ); ?> (<?php echo esc_html( count( $group_completed[ $gname ] ) ); ?>)</p>
+                                        <p class="saq-card__label"><?php echo esc_html( $metrics['completed']['label'] ); ?> — <?php echo esc_html( $gname ); ?> (<?php echo esc_html( count( $group_completed[ $gname ] ) ); ?>)</p>
                                         <table class="saq-table saq-table--nested">
-                                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th></tr></thead>
+                                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th><th>Completed Date</th><th>Language</th></tr></thead>
                                             <tbody>
                                             <?php foreach ( $group_completed[ $gname ] as $gu ) : ?>
                                                 <tr>
                                                     <td><?php echo esc_html( $gu->first_name ); ?></td>
                                                     <td><?php echo esc_html( $gu->last_name ); ?></td>
                                                     <td><?php echo esc_html( $gu->user_email ); ?></td>
-                                                    <td><?php echo esc_html( $gu->company ?? '' ); ?></td>
-                                                    <td><?php echo esc_html( gmdate( 'd/m/Y', $completed_set[ $gu->ID ] ) ); ?></td>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php endif; ?>
-                            <?php if ( ! empty( $group_not_completed[ $gname ] ) ) : ?>
-                            <tr class="saq-drilldown" id="saq-dd-grp-nc-<?php echo esc_attr( $gslug ); ?>">
-                                <td colspan="5" style="padding: 0;">
-                                    <div class="saq-drilldown__inner">
-                                        <p class="saq-card__label">Not Completed — <?php echo esc_html( $gname ); ?> (<?php echo esc_html( count( $group_not_completed[ $gname ] ) ); ?>)</p>
-                                        <table class="saq-table saq-table--nested">
-                                            <thead><tr><th>First Name</th><th>Last Name</th><th>Email</th><th>Company</th></tr></thead>
-                                            <tbody>
-                                            <?php foreach ( $group_not_completed[ $gname ] as $gu ) : ?>
-                                                <tr>
-                                                    <td><?php echo esc_html( $gu->first_name ); ?></td>
-                                                    <td><?php echo esc_html( $gu->last_name ); ?></td>
-                                                    <td><?php echo esc_html( $gu->user_email ); ?></td>
-                                                    <td><?php echo esc_html( $gu->company ?? '' ); ?></td>
+                                                    <td><?php echo esc_html( self::format_company_name( $gu->company ?? '' ) ); ?></td>
+                                                    <td><?php echo esc_html( gmdate( 'd/m/Y', $completed_set[ $gu->ID ]['ts'] ) ); ?></td>
+                                                    <td><?php echo esc_html( $completed_set[ $gu->ID ]['lang'] ?: '—' ); ?></td>
                                                 </tr>
                                             <?php endforeach; ?>
                                             </tbody>
@@ -577,24 +443,99 @@ class ScaleAQ_Course_Report extends ScaleAQ_Report_Base {
         return ob_get_clean();
     }
 
-    private static function export_csv( $users, $completed_set, $cat, $category_labels ) {
+    private static function render_user_drilldown( $id, $label, $list, $completed_set, $started_activity, $show_date ) {
+        ?>
+        <div class="saq-drilldown" id="<?php echo esc_attr( $id ); ?>">
+            <div class="saq-card">
+                <p class="saq-card__label"><?php echo esc_html( $label ); ?> (<?php echo esc_html( count( $list ) ); ?>)</p>
+                <div class="saq-table-wrap">
+                    <table class="saq-table">
+                        <thead>
+                            <tr>
+                                <th>First Name</th>
+                                <th>Last Name</th>
+                                <th>Email</th>
+                                <th>Company</th>
+                                <?php if ( $show_date ) : ?><th>Completed Date</th><?php endif; ?>
+                                <th>Language</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ( $list as $u ) :
+                            $uid  = (int) $u->ID;
+                            $lang = '';
+                            if ( isset( $completed_set[ $uid ] ) ) {
+                                $lang = $completed_set[ $uid ]['lang'] ?? '';
+                            } elseif ( isset( $started_activity[ $uid ] ) ) {
+                                $lang = $started_activity[ $uid ]['lang'] ?? '';
+                            }
+                        ?>
+                            <tr>
+                                <td><?php echo esc_html( $u->first_name ); ?></td>
+                                <td><?php echo esc_html( $u->last_name ); ?></td>
+                                <td><?php echo esc_html( $u->user_email ); ?></td>
+                                <td><?php echo esc_html( self::format_company_name( $u->company ?? '' ) ); ?></td>
+                                <?php if ( $show_date ) : ?>
+                                    <td><?php echo isset( $completed_set[ $uid ] ) ? esc_html( gmdate( 'd/m/Y', $completed_set[ $uid ]['ts'] ) ) : '&mdash;'; ?></td>
+                                <?php endif; ?>
+                                <td><?php echo $lang !== '' ? esc_html( $lang ) : '&mdash;'; ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    private static function export_csv( $users, $completed_set, $enrolled_set, $started_activity, $statuses ) {
         header( 'Content-Type: text/csv; charset=utf-8' );
-        header( 'Content-Disposition: attachment; filename="course-report-' . esc_attr( $cat ) . '.csv"' );
+        header( 'Content-Disposition: attachment; filename="course-report.csv"' );
 
         $output = fopen( 'php://output', 'w' );
-        fputcsv( $output, array( 'ID', 'Email', 'First Name', 'Last Name', 'Company', 'Category', 'Completed', 'Completed Date' ) );
+        fputcsv( $output, array(
+            'ID',
+            'Email',
+            'First name',
+            'Last name',
+            'Company',
+            'Group',
+            'Enrolled',
+            'Started',
+            'Completed',
+            'Status',
+            'Language',
+            'Completed date',
+        ) );
 
         foreach ( $users as $u ) {
-            $ts = $completed_set[ $u->ID ] ?? null;
+            $uid         = (int) $u->ID;
+            $is_enrolled = isset( $enrolled_set[ $uid ] );
+            $is_done     = isset( $completed_set[ $uid ] );
+            $is_started  = isset( $started_activity[ $uid ] );
+            $status_key  = self::resolve_user_status( $is_enrolled, $is_started, $is_done );
+            $lang        = '';
+            if ( $is_done ) {
+                $lang = $completed_set[ $uid ]['lang'] ?? '';
+            } elseif ( $is_started ) {
+                $lang = $started_activity[ $uid ]['lang'] ?? '';
+            }
+            $started_yes = ( $is_enrolled && ( $is_started || $is_done ) );
+
             fputcsv( $output, array(
                 $u->ID,
                 $u->user_email,
                 $u->first_name,
                 $u->last_name,
-                $u->company ?? '',
-                $category_labels[ $cat ] ?? $cat,
-                $ts ? 'Yes' : 'No',
-                $ts ? gmdate( 'd/m/Y', $ts ) : '',
+                self::format_company_name( $u->company ?? '' ),
+                self::get_group_label( $u->company ?? '' ),
+                $is_enrolled ? 'Yes' : 'No',
+                $started_yes ? 'Yes' : 'No',
+                $is_done ? 'Yes' : 'No',
+                $statuses[ $status_key ] ?? $status_key,
+                $lang,
+                $is_done ? gmdate( 'd/m/Y', $completed_set[ $uid ]['ts'] ) : '',
             ) );
         }
 
